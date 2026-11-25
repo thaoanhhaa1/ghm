@@ -1,12 +1,15 @@
 BIN ?= $(HOME)/.local/bin/ghm
 
-.PHONY: build app test vet install doctor fmt clean
+.PHONY: build app icon test vet install doctor fmt clean
 
 build:
 	go build -o $(BIN) ./cmd/ghm
 
 app: install
 	GHM_SRC=$(BIN) ./app/scripts/bundle.sh release
+
+icon:
+	cd app && rm -rf build/AppIcon.iconset && swift scripts/make-icon.swift build/AppIcon.iconset && iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
 
 install: build
 	@echo "installed $(BIN) - run 'ghm install-shim' once per machine"

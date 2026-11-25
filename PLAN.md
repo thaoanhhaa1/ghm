@@ -571,3 +571,49 @@ Mọi action in **một** object JSON và exit 0, để UI hiển thị được
 - App ký ad-hoc, chưa notarize: máy khác tải về sẽ bị Gatekeeper hỏi. Muốn phát hành cần Developer ID + notarization.
 - Lần đầu mở, macOS hỏi quyền Documents/Desktop vì scan repo; từ chối thì chỉ thấy repo trong `~/work`.
 - Chưa có icon `.icns`, chưa có auto-update, chưa hỗ trợ GitHub Enterprise UI (backend đã có env URL).
+
+## 16. Icon, Liquid Glass, auto-update — v0.7.0 (2026-11-25)
+
+Ba việc: icon `.icns`, giao diện Liquid Glass, và Sparkle auto-update.
+
+### Icon
+
+- `app/scripts/make-icon.swift` vẽ icon 1024×1024 bằng CoreGraphics: squircle bo 220, gradient indigo→violet→teal, 3 aurora blob, specular sweep, vignette, rồi glyph git-branch 4 node (kim loại glass) + terminal caret.
+- `make icon` render ra `app/build/AppIcon.iconset`, `iconutil -c icns` → `app/Resources/AppIcon.icns` (16…512@2x).
+- `Info.plist` có `CFBundleIconFile=AppIcon`; bundle copy vào `Contents/Resources`. Corner alpha = 0 nên không có nền vuông.
+
+### Liquid Glass
+
+- Nâng deployment target lên **macOS 26** (`.macOS("26.0")` trong `Package.swift`) để dùng API thật thay vì fake blur.
+- `Theme.swift`:
+  - `LiquidBackground`: gradient tối + 3 blob màu lớn (indigo/violet/teal) drift chậm 22s, làm nền để glass khúc xạ.
+  - `glassPanel(_:tint:interactive:)`: wrapper quanh `.glassEffect(.regular[.tint().interactive()], in: .rect(cornerRadius:))`.
+  - `GlassBadge`, `GlassIconButton` (`.buttonStyle(.glass)`), `StatePill`, `Avatar` gradient theo login.
+- `RootView` bỏ `NavigationSplitView` + `Table`, thay bằng layout riêng:
+  - Sidebar là một glass panel 272pt: logo gradient, hàng "All repositories", từng account với avatar + badge key/token + số repo, selection dùng `.glassEffect(.regular.tint(...).interactive())` + `glassEffectID` để morph, Manage (Add account `.glassProminent`, Health/Refresh/Check updates `.glass`), footer `gh active` + root.
+  - Detail là glass panel: header (title, dirty/behind badge, search trong glass capsule, refresh/health/add), danh sách row tự vẽ (hover/selected glass highlight, click chọn, double-click mở GitHub, context menu), status bar glass.
+  - Cửa sổ `.windowStyle(.hiddenTitleBar)`, chừa 30pt cho traffic lights.
+- Sheet Add account/Doctor: nền gradient riêng, icon trong glass circle, code box/result panel/kết quả doctor đều `glassPanel`, button glass.
+- Bỏ badge "0.7.0" hardcode: đọc `CFBundleShortVersionString`.
+
+### Auto-update (Sparkle 2.10.1)
+
+- `Package.swift` thêm `.package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0")` (resolve 2.10.1, commit `Package.resolved`).
+- `Updater.swift`: `SPUStandardUpdaterController(startingUpdater: true)` + delegate cho `GHM_UPDATE_FEED` / `GHM_UPDATE_CHANNEL` (test/staging, không cần rebuild).
+- Menu app có **Check for Updates…** (`⇧⌘U`), sidebar có nút tương ứng.
+- `Info.plist`: `SUFeedURL=https://github.com/thaoanhhaa1/ghm/releases/latest/download/appcast.xml`, `SUPublicEDKey` (Ed25519 sinh bằng `generate_keys`, private key trong login keychain), `SUEnableAutomaticChecks`, `SUAllowsAutomaticUpdates`, `SUAutomaticallyUpdate`, `SUScheduledCheckInterval=86400`.
+- `bundle.sh`: copy `Sparkle.framework` vào `Contents/Frameworks`, thêm rpath `@executable_path/../Frameworks`, ký framework rồi app, `codesign --verify --deep --strict`.
+- Release tay: `GHM_VERSION=x.y.z GHM_MAKE_RELEASE=1 ./app/scripts/bundle.sh release` → `dist/ghm-x.y.z.zip` + `dist/appcast.xml` (EdDSA signature, URL trỏ `releases/download/vX/`). Upload cả hai lên GitHub Release; `latest/download/appcast.xml` là feed.
+
+### Kiểm chứng
+
+- App 0.7.0 chạy thật: sidebar 3 account (14/16/5 repo), 88 repo, `gh active: anhthaodev`; `ghm doctor` 23 ok.
+- Icon: `iconutil` OK, `sips` 1024, ASCII render đúng squircle + glyph, 4 góc alpha 0.
+- Update e2e: build 0.7.1 + zip + `generate_appcast` (prefix `http://127.0.0.1:8123/`), chạy app 0.7.0 với `GHM_UPDATE_FEED=…`, bấm Check for Updates → Sparkle hiện *“A new version of ghm is available! ghm 0.7.1 … you have 0.7.0”*; bấm Install → *“Updating ghm / Ready to Install”* → app tự thay bundle, chạy lại **0.7.1**.
+- `codesign --verify --deep --strict` pass; `otool -l` có rpath `@executable_path/../Frameworks`; AX thấy menu `Check for Updates…` và nút sidebar.
+
+### Giới hạn
+
+- App ký ad-hoc + chưa notarize; auto-update chạy được trên máy này nhưng phát hành cho máy khác cần Developer ID ổn định + notarization.
+- Icon hiện là file `.icns` cổ điển; macOS 26 còn hỗ trợ icon layered (Default/Dark/Clear/Tinted) qua `.icon` bundle — chưa làm.
+- CI/release GitHub Actions vẫn fail 3s/0 step nên chưa có release tự động; quy trình release đang thủ công.

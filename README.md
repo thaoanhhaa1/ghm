@@ -110,7 +110,7 @@ ghm tui
 ```
 
 ```
-ghm 0.6.0                                             gh active: anhthaodev
+ghm 0.7.0                                             gh active: anhthaodev
 [1 anhthaodev 14] [2 thaoanhhaa1 16] [3 namphuongso 5]
 ────────────────────────────────────────────────────────────────────────────
 REPO                        BRANCH                AHEAD  BEHIND  STATE
@@ -135,12 +135,12 @@ make app                  # builds ~/.local/bin/ghm, bundles it, signs ad-hoc
 open app/build/ghm.app
 ```
 
-Requirements: macOS 13+, Xcode command line tools (`swift`), and Go. `make app` copies the `ghm` binary inside the bundle, so Finder launches work even though `~/.local/bin` is not on the GUI `PATH`. Rebuild after changing the Go code.
+The UI is **Liquid Glass** (`glassEffect`, `GlassEffectContainer`, glass buttons) over a slowly drifting aurora background, with a generated `.icns` icon (`make icon`). Requirements: **macOS 26+**, Xcode command line tools (`swift`), and Go. `make app` copies the `ghm` binary inside the bundle, so Finder launches work even though `~/.local/bin` is not on the GUI `PATH`, and embeds `Sparkle.framework` for updates.
 
-- **Sidebar** — all repositories or one account, with repo counts and missing key/token badges.
-- **Table** — repository, account, branch, ahead/behind, dirty state. Right-click for fetch/pull/push, open on GitHub, reveal in Finder, copy path. `⌘R` rescans.
+- **Sidebar** — glass panel with an account chip per login, repo counts, missing key/token badges, and Manage actions.
+- **Repositories** — custom glass list with repository, account avatar, branch, ahead/behind, dirty state. Click to select, double-click to open on GitHub, right-click for fetch/pull/push, reveal in Finder, copy path. `⌘R` rescans.
 - **Health checks** — `ghm doctor`, plus a *Fix issues* button (`ghm doctor --fix`).
-- **Add account…** — two paths, both keeping credentials in the `gh` keyring:
+- **Add account…** (`⇧⌘N`) — two paths, both keeping credentials in the `gh` keyring:
   - *Browser*: device flow. The app shows the code, opens `github.com/login/device`, polls until you approve. No terminal, no copy-pasting commands.
   - *Token*: paste a PAT (masked field, piped to `gh auth login --with-token`, never stored by ghm). The *Create a token* link pre-fills `repo,read:org,admin:public_key`.
   - After login, ghm detects the new keyring account and writes SSH key, key registration, `Host github-<login>`, per-account gitconfig, `includeIf`, and `~/work/<login>`. Results are listed step by step.
@@ -150,6 +150,25 @@ The device flow defaults to the public GitHub CLI OAuth app client id so it work
 On first launch macOS asks for access to **Documents/Desktop** because ghm also scans those folders for repositories; allow it to see every checkout (or set `scan_roots` in `accounts.yaml`).
 
 `GHM_GITHUB_API` / `GHM_GITHUB_WEB` redirect the REST and OAuth endpoints (tests, GitHub Enterprise).
+
+### Updates
+
+The app ships with Sparkle 2:
+
+- `SUFeedURL` → `https://github.com/thaoanhhaa1/ghm/releases/latest/download/appcast.xml`.
+- `SUPublicEDKey` is pinned in `Info.plist`; every archive is signed with the Ed25519 key stored in the login keychain (`generate_keys`).
+- Background checks run once a day (`SUScheduledCheckInterval`) with automatic download/install; *Check for Updates…* is in the app menu (`⇧⌘U`) and the sidebar.
+- A staging feed can be tested with `GHM_UPDATE_FEED=http://127.0.0.1:8123/appcast.xml`; `GHM_UPDATE_CHANNEL` selects a Sparkle channel.
+
+Publish a release (CI is optional here; this is the manual path):
+
+```bash
+GHM_VERSION=0.7.1 GHM_MAKE_RELEASE=1 ./app/scripts/bundle.sh release
+gh release create v0.7.1 dist/ghm-0.7.1.zip dist/appcast.xml \
+  --title "ghm 0.7.1" --notes "…"
+```
+
+`appcast.xml` must be uploaded with **every** release because the feed URL resolves through `releases/latest`. Back up the signing key once with `app/.build/artifacts/sparkle/Sparkle/bin/generate_keys -x ~/ghm-sparkle.key` (never commit it). Auto-update needs a stable signing identity for Gatekeeper; ad-hoc builds work locally but a Developer ID + notarization is required for distribution.
 
 ## Shell completion
 
@@ -170,7 +189,7 @@ ghm completion fish > ~/.config/fish/completions/ghm.fish
 - Tagging `v*` runs goreleaser: darwin/linux (amd64/arm64) tarballs, checksums, Homebrew formula push to `thaoanhhaa1/homebrew-tap` (needs `HOMEBREW_TAP_GITHUB_TOKEN`).
 
 ```bash
-git tag v0.6.0 && git push --tags
+git tag v0.7.0 && git push --tags
 ```
 
 

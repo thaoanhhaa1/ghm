@@ -10,8 +10,10 @@ struct DoctorView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "stethoscope")
-                    .font(.title2)
-                    .foregroundStyle(.tint)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .glassPanel(14, tint: .ghmTeal)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Health checks")
                         .font(.title2.bold())
@@ -41,7 +43,7 @@ struct DoctorView: View {
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                .glassPanel(14, tint: .red)
             } else if let payload {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -67,7 +69,7 @@ struct DoctorView: View {
                         }
                     }
                 }
-                .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                .glassPanel(16)
             } else {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -82,15 +84,30 @@ struct DoctorView: View {
                 }
                 Spacer()
                 Button("Run again") { run(fix: false) }
+                    .buttonStyle(.glass)
                     .disabled(busy)
                 Button("Fix issues") { run(fix: true) }
+                    .buttonStyle(.glassProminent)
+                    .tint(.ghmTeal)
                     .disabled(busy)
                 Button("Close") { dismiss() }
+                    .buttonStyle(.glass)
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
-        .frame(width: 650, height: 560)
+        .padding(22)
+        .frame(width: 680, height: 600)
+        .background(
+            ZStack {
+                Color(hex: 0x0A0E20)
+                LinearGradient(
+                    colors: [Color.ghmIndigo.opacity(0.4), Color.ghmTeal.opacity(0.18)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+            .ignoresSafeArea()
+        )
         .task { await runAsync(fix: false) }
     }
 
