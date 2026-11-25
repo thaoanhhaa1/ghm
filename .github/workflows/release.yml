@@ -141,6 +141,11 @@ jobs:
           "$APP/Contents/MacOS/ghm" version | grep -qx "ghm $VERSION"
           grep -q "sparkle:edSignature" dist/appcast.xml
           grep -q "releases/download/v$VERSION/ghm-$VERSION.zip" dist/appcast.xml
+          sig=$(sed -n 's/.*edSignature="\([^"]*\)".*/\1/p' dist/appcast.xml)
+          app/.build/artifacts/sparkle/Sparkle/bin/sign_update --verify \
+            "dist/ghm-$VERSION.zip" "$sig"
+          len=$(sed -n 's/.*length="\([0-9]*\)".*/\1/p' dist/appcast.xml)
+          test "$len" = "$(stat -f%z "dist/ghm-$VERSION.zip")"
 
       - uses: actions/upload-artifact@v7
         with:

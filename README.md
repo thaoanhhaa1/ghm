@@ -224,7 +224,7 @@ Local equivalents:
 
 ```bash
 make check                 # gofmt, go vet, go test, go build
-VERSION=0.8.1 make app     # stamps the plist and the bundled CLI
+VERSION=1.2.3 make app     # stamps the plist and the bundled CLI
 ```
 
 `.github/workflows/ci.yml` runs the same checks on every push to `main` and on

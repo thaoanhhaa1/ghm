@@ -698,3 +698,13 @@ Vì `needs: cli`, job `app` bị skip → release v0.8.1 chỉ có tarball, thi�
 - Thêm `--draft` cho goreleaser: release được tạo ở trạng thái draft, job `app` upload zip/appcast rồi mới `gh release edit --draft=false`. Nhờ vậy nếu job app lỗi, `releases/latest` vẫn là bản trước đó, auto-update không bao giờ trỏ vào release thiếu file.
 
 Bài học: job `app` phải `needs: cli`, nhưng mọi bước publish của `cli` phải là thứ không thể fail vì quyền phụ (brew) — nếu không sẽ chặn asset quan trọng nhất. Draft + publish cuối cùng là chốt an toàn.
+
+### Kết quả v0.8.2 (pipeline đầu tiên chạy trọn)
+- Run `45549973505`: `cli` 59s, `app` 1m30s, cả hai xanh; artifact `cli` + `app-0.8.2`.
+- Release `v0.8.2`: draft=true lúc tạo, sau job app được publish (`draft=false`, assets=7: 4 tar.gz, checksums, `ghm-0.8.2.zip`, `appcast.xml`), là `latest`.
+- Tarball `ghm_0.8.2_darwin_arm64.tar.gz` → `ghm version` = 0.8.2 (ldflags từ tag).
+- Zip CI: plist 0.8.2, `codesign --verify --deep --strict` pass, CLI trong bundle 0.8.2, `sign_update --verify` chấp nhận chữ ký appcast.
+- Feed thật: `releases/latest/download/appcast.xml` → version 0.8.2, URL `…/download/v0.8.2/ghm-0.8.2.zip`.
+- Auto-update thật: bản 0.8.1 trong `/tmp` → *"ghm 0.8.2 is now available"* → Install → bundle tự thành 0.8.2 và relaunch; app UI hiện `0.8.2`.
+- Bước `Verify bundle` được bổ sung kiểm tra `sign_update --verify` và `length` của enclosure khớp kích thước zip, để lần sau lỗi ký bị chặn ngay trong CI.
+- `skip_upload: true` cho brew vẫn giữ; khi PAT có Contents: write trên `homebrew-tap` thì đổi thành `false` để có thêm formula.
