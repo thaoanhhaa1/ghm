@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -16,6 +17,11 @@ type actionMsg struct {
 	err  error
 }
 type reloadMsg struct{}
+type logMsg struct {
+	rp    Repo
+	lines []string
+	err   error
+}
 
 type tuiModel struct {
 	r        *Runner
@@ -28,11 +34,17 @@ type tuiModel struct {
 	filterOn bool
 	help     bool
 	status   string
+	sticky   bool
 	err      bool
 	loading  bool
 	width    int
 	height   int
 	active   string
+	// log overlay
+	overlay  string
+	logTitle string
+	logLines []string
+	logTop   int
 }
 
 var (
@@ -116,10 +128,26 @@ func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.all = msg
 		m.loading = false
 		m.applyFilter()
-		m.status = fmt.Sprintf("%d repositories", len(m.all))
+		if !m.sticky {
+			m.status = fmt.Sprintf("%d repositories", len(m.all))
+		}
 
 	case ghActiveMsg:
 		m.active = string(msg)
+
+	case logMsg:
+		if msg.err != nil {
+			m.err = true
+			m.status = "log: " + firstLine(msg.err.Error())
+			m.overlay = ""
+			break
+		}
+		m.err = false
+		m.overlay = "log"
+		m.logTitle = fmt.Sprintf("%s  %s", orDash(msg.rp.Slug), orDash(msg.rp.Branch))
+		m.logLines = msg.lines
+		m.logTop = 0
+		m.status = fmt.Sprintf("%d commits", len(msg.lines))
 
 	case reloadMsg:
 		m.loading = true
@@ -127,6 +155,7 @@ func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case actionMsg:
 		m.loading = false
+		m.sticky = true
 		if msg.err != nil {
 			m.err = true
 			m.status = msg.desc + ": " + firstLine(msg.err.Error())
@@ -140,6 +169,10 @@ func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.filterOn {
 			return m.updateFilter(msg)
 		}
+		if m.overlay == "log" {
+			return m.updateLog(msg)
+		}
+		m.sticky = false
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -157,13 +190,13 @@ func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.visible) > 0 {
 				m.cursor = len(m.visible) - 1
 			}
-		case "tab", "right", "l":
+		case "tab", "right":
 			if len(m.accounts) > 0 {
 				m.acct = (m.acct + 1) % len(m.accounts)
 				m.cursor = 0
 				m.applyFilter()
 			}
-		case "shift+tab", "left", "h":
+		case "shift+tab", "left":
 			if len(m.accounts) > 0 {
 				m.acct = (m.acct - 1 + len(m.accounts)) % len(m.accounts)
 				m.cursor = 0
@@ -218,6 +251,55 @@ func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.status = "opened " + url
 				}
 			}
+		case "c":
+			if rp, ok := m.selected(); ok {
+				m.loading = true
+				m.status = "creating PR for " + orDash(rp.Slug) + "…"
+				return m, prCmd(m.r, rp)
+			}
+		case "l":
+			if rp, ok := m.selected(); ok {
+				return m, logCmd(rp)
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m *tuiModel) updateLog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	maxTop := len(m.logLines) - m.listHeight()
+	if maxTop < 0 {
+		maxTop = 0
+	}
+	step := m.listHeight()
+	switch msg.String() {
+	case "esc", "l", "enter":
+		m.overlay = ""
+		m.sticky = false
+		m.status = fmt.Sprintf("%d repositories", len(m.visible))
+	case "ctrl+c":
+		return m, tea.Quit
+	case "j", "down":
+		if m.logTop < maxTop {
+			m.logTop++
+		}
+	case "k", "up":
+		if m.logTop > 0 {
+			m.logTop--
+		}
+	case "g", "home":
+		m.logTop = 0
+	case "G", "end":
+		m.logTop = maxTop
+	case " ", "pgdown":
+		m.logTop += step
+		if m.logTop > maxTop {
+			m.logTop = maxTop
+		}
+	case "pgup":
+		m.logTop -= step
+		if m.logTop < 0 {
+			m.logTop = 0
 		}
 	}
 	return m, nil
@@ -258,6 +340,84 @@ func gitAction(rp Repo, desc string, args ...string) tea.Cmd {
 	}
 }
 
+// logCmd loads the recent commits of one repository for the log overlay.
+func logCmd(rp Repo) tea.Cmd {
+	return func() tea.Msg {
+		out, err := Git(rp.Path, "log", "-n", "60", "--date=short", "--pretty=format:%h %ad %an %s")
+		if err != nil {
+			return logMsg{rp: rp, err: err}
+		}
+		var lines []string
+		for _, line := range strings.Split(out, "\n") {
+			if strings.TrimSpace(line) != "" {
+				lines = append(lines, line)
+			}
+		}
+		if len(lines) == 0 {
+			return logMsg{rp: rp, err: fmt.Errorf("no commits")}
+		}
+		return logMsg{rp: rp, lines: lines}
+	}
+}
+
+// prCmd pushes the current branch with the repo's account and opens a PR.
+func prCmd(r *Runner, rp Repo) tea.Cmd {
+	return func() tea.Msg {
+		desc := "PR " + orDash(rp.Slug)
+		if rp.Slug == "" {
+			return actionMsg{desc: desc, err: fmt.Errorf("no github remote")}
+		}
+		if rp.Login == "" {
+			return actionMsg{desc: desc, err: fmt.Errorf("no account for %s; run ghm adopt %s", TildePath(rp.Path), TildePath(rp.Path))}
+		}
+		tok, err := r.Token(rp.Login)
+		if err != nil {
+			return actionMsg{desc: desc, err: err}
+		}
+		branch, err := Git(rp.Path, "rev-parse", "--abbrev-ref", "HEAD")
+		if err != nil {
+			return actionMsg{desc: desc, err: err}
+		}
+		if branch == "HEAD" {
+			return actionMsg{desc: desc, err: fmt.Errorf("detached HEAD; check out a branch first")}
+		}
+		if _, err := Git(rp.Path, "push", "-u", "origin", "HEAD"); err != nil {
+			return actionMsg{desc: desc, err: fmt.Errorf("push: %v", err)}
+		}
+		title, err := Git(rp.Path, "log", "-1", "--pretty=%s")
+		if err != nil || strings.TrimSpace(title) == "" {
+			title = "Update " + branch
+		}
+		cmd := exec.Command(r.GhPath(), "pr", "create", "--title", strings.TrimSpace(title), "--body", "")
+		cmd.Dir = rp.Path
+		cmd.Env = append(os.Environ(), "GH_TOKEN="+tok, "GH_PROMPT_DISABLED=1", "GHM_SHIM=0")
+		out, err := cmd.CombinedOutput()
+		text := strings.TrimSpace(string(out))
+		if err != nil {
+			msg := firstLine(text)
+			if msg == "" {
+				msg = err.Error()
+			}
+			return actionMsg{desc: desc, err: fmt.Errorf("%s", msg)}
+		}
+		if u := lastURL(text); u != "" {
+			return actionMsg{desc: "PR created: " + u}
+		}
+		return actionMsg{desc: "PR created: " + firstLine(text)}
+	}
+}
+
+func lastURL(s string) string {
+	lines := strings.Split(s, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		l := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(l, "https://github.com/") && !strings.ContainsAny(l, " \t") {
+			return l
+		}
+	}
+	return ""
+}
+
 func (m *tuiModel) View() string {
 	if m.width == 0 {
 		return "loading..."
@@ -287,16 +447,30 @@ func (m *tuiModel) View() string {
 		return b.String()
 	}
 
-	listHeight := m.height - 7
-	if listHeight < 3 {
-		listHeight = 3
+	if m.overlay == "log" {
+		b.WriteString(styleHeader.Render("log  "+m.logTitle) + "\n")
+		height := m.listHeight() - 1
+		end := m.logTop + height
+		if end > len(m.logLines) {
+			end = len(m.logLines)
+		}
+		for i := m.logTop; i < end; i++ {
+			b.WriteString(truncate(m.logLines[i], m.width) + "\n")
+		}
+		for i := end - m.logTop; i < height; i++ {
+			b.WriteString("\n")
+		}
+		m.writeFooter(&b, "j/k scroll  g/G top/bottom  esc close  q quit")
+		return b.String()
 	}
+
+	height := m.listHeight()
 	start := 0
-	if m.cursor >= listHeight {
-		start = m.cursor - listHeight + 1
+	if m.cursor >= height {
+		start = m.cursor - height + 1
 	}
-	if start+listHeight > len(m.visible) {
-		start = len(m.visible) - listHeight
+	if start+height > len(m.visible) {
+		start = len(m.visible) - height
 	}
 	if start < 0 {
 		start = 0
@@ -304,7 +478,7 @@ func (m *tuiModel) View() string {
 	widths := m.columns()
 	fmt.Fprintf(&b, "%s  %s  %s  %s  %s\n",
 		pad("REPO", widths[0]), pad("BRANCH", widths[1]), pad("AHEAD", 5), pad("BEHIND", 6), "STATE")
-	for i := start; i < start+listHeight && i < len(m.visible); i++ {
+	for i := start; i < start+height && i < len(m.visible); i++ {
 		rp := m.visible[i]
 		state := "clean"
 		switch {
@@ -328,7 +502,11 @@ func (m *tuiModel) View() string {
 	if len(m.visible) == 0 {
 		b.WriteString(styleDim.Render("  no repositories for this account") + "\n")
 	}
+	m.writeFooter(&b, "j/k move  f fetch  p pull  P push  c PR  l log  o open  / filter  tab account  ? help  q quit")
+	return b.String()
+}
 
+func (m *tuiModel) writeFooter(b *strings.Builder, hint string) {
 	b.WriteString(styleRule.Render(strings.Repeat("─", m.width)) + "\n")
 	status := m.status
 	if m.loading {
@@ -339,8 +517,22 @@ func (m *tuiModel) View() string {
 	} else {
 		b.WriteString(styleOk.Render(status) + "\n")
 	}
-	b.WriteString(styleDim.Render("j/k move  f fetch  p pull  P push  o open  / filter  1-3 account  ? help  q quit"))
-	return b.String()
+	b.WriteString(styleDim.Render(hint))
+}
+
+func (m *tuiModel) listHeight() int {
+	h := m.height - 7
+	if h < 3 {
+		h = 3
+	}
+	return h
+}
+
+func truncate(s string, width int) string {
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	return s[:width-1] + "…"
 }
 
 func (m *tuiModel) helpView() string {
@@ -352,6 +544,8 @@ func (m *tuiModel) helpView() string {
 		"f              git fetch --prune",
 		"p              git pull --ff-only",
 		"P              git push",
+		"c              push branch and create a PR (gh pr create)",
+		"l              commit log of the selected repo",
 		"o              open repo on github.com",
 		"r              rescan repositories",
 		"?              close help",

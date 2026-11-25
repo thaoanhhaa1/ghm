@@ -74,7 +74,7 @@ ghm adopt --all --dry-run        # preview a bulk migration
 | `ghm exec <login> -- cmd` | Run anything with that account's token + SSH command |
 | `eval "$(ghm use <login>)"` | Same, for the current shell |
 | `ghm token <login>` | Print the keyring token |
-| `ghm tui` | Dashboard: accounts as tabs, repos with ahead/behind, fetch/pull/push |
+| `ghm tui` | Dashboard: accounts as tabs, repos with ahead/behind, fetch/pull/push, PR, log |
 | `ghm completion zsh\|bash\|fish` | Shell completion script |
 | `ghm install-shim` / `uninstall-shim` | Manage the `gh` wrapper and PATH entry |
 
@@ -87,17 +87,21 @@ ghm tui
 ```
 
 ```
-ghm 0.3.0                                             gh active: anhthaodev
-[1 anhthaodev 14] [2 thaoanhhaa1 15] [3 namphuongso 5]
+ghm 0.4.0                                             gh active: anhthaodev
+[1 anhthaodev 14] [2 thaoanhhaa1 16] [3 namphuongso 5]
 ────────────────────────────────────────────────────────────────────────────
 REPO                        BRANCH                AHEAD  BEHIND  STATE
 anhthaodev/misa             dev                   0      2       3 dirty
 anhthaodev/it-tools-be      master                1      0       clean
 ────────────────────────────────────────────────────────────────────────────
-j/k move  f fetch  p pull  P push  o open  / filter  1-3 account  ? help  q quit
+j/k move  f fetch  p pull  P push  c PR  l log  o open  / filter  tab account  ? help  q quit
 ```
 
 `p` runs `git pull --ff-only`, `P` runs `git push`, `f` runs `git fetch --prune`, `o` opens the repo on github.com, `/` filters by name/branch/path, `?` opens help.
+
+`c` creates a pull request: it pushes the current branch with the repo's account (`git push -u origin HEAD`), then runs `gh pr create` with that account's token. The PR URL is shown in the status line; failures (read-only repo, detached HEAD, `main` into `main`) stay in the dashboard.
+
+`l` opens the last 60 commits of the selected repo (`j/k` scroll, `g/G` top/bottom, `esc` close).
 
 ## Shell completion
 
@@ -118,7 +122,7 @@ ghm completion fish > ~/.config/fish/completions/ghm.fish
 - Tagging `v*` runs goreleaser: darwin/linux (amd64/arm64) tarballs, checksums, Homebrew formula push to `thaoanhhaa1/homebrew-tap` (needs `HOMEBREW_TAP_GITHUB_TOKEN`).
 
 ```bash
-git tag v0.3.0 && git push --tags
+git tag v0.4.0 && git push --tags
 ```
 
 

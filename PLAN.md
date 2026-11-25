@@ -455,6 +455,23 @@ brew install thaoanhhaa1/tap/ghm                       # sau lần release đầ
 
 ### Còn tuỳ chọn
 
-- PR actions trong TUI (`c` mở `gh pr create`), commit/push prompt.
+- Commit/push có prompt message trong TUI.
 - GPG signing theo account, port Windows.
 - `ghm doctor` trong pre-push hook hoặc CI của từng repo.
+
+## 13. TUI PR + log — v0.4.0 (2026-11-25)
+
+Thêm hai phím vào dashboard:
+
+| Phím | Việc |
+|---|---|
+| `c` | `git push -u origin HEAD` bằng key của repo, rồi `gh pr create --title <commit subject> --body ""` bằng token account đó (`GH_PROMPT_DISABLED=1`, `GHM_SHIM=0`). URL in ở status; lỗi (repo read-only, detached HEAD, `main` → `main`) hiện đỏ và không thoát TUI. |
+| `l` | Overlay log 60 commit gần nhất (`%h %ad %an %s`); `j/k` scroll, `g/G` đầu/cuối, `PgUp/PgDn`, `esc` đóng. |
+
+Chi tiết triển khai:
+
+- `c`/`l` tách khỏi phím đổi account: bỏ `h`/`l` khỏi nhóm `tab`/`←→` (giờ chỉ còn `tab`/`shift+tab`/`←→`).
+- Status "sticky": message của action (`PR created: <url>`, `pushed`, lỗi) không bị rescan ghi đè bởi "N repositories".
+- `prCmd` gọi `r.GhPath()` (gh thật, không qua shim) + `GH_TOKEN` của account; `cmd.Dir` = repo.
+- Test mới: `TestLogOverlayRenders`, `TestLastURL`, `TestPRCmdRequiresRemote`, `TestPRCmdPushesAndCreatesPR` (repo + bare remote + stub `gh`, không cần mạng), `TestStickyStatusSurvivesReload`.
+- Verify thật trong PTY: mở log, đóng log, `c` trên repo read-only → hiện `PR ...: push: ... ERROR: Write access to repository not granted` đúng account.
