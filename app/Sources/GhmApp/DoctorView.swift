@@ -13,7 +13,7 @@ struct DoctorView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
-                    .glassPanel(14, tint: .ghmTeal)
+                    .glassPanel(14)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Health checks")
                         .font(.title2.bold())
@@ -88,7 +88,6 @@ struct DoctorView: View {
                     .disabled(busy)
                 Button("Fix issues") { run(fix: true) }
                     .buttonStyle(.glassProminent)
-                    .tint(.ghmTeal)
                     .disabled(busy)
                 Button("Close") { dismiss() }
                     .buttonStyle(.glass)
@@ -98,14 +97,11 @@ struct DoctorView: View {
         .padding(22)
         .frame(width: 680, height: 600)
         .background(
-            ZStack {
-                Color(hex: 0x0A0E20)
-                LinearGradient(
-                    colors: [Color.ghmIndigo.opacity(0.4), Color.ghmTeal.opacity(0.18)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            LinearGradient(
+                colors: [Color(hex: 0x0E1116), Color(hex: 0x12161D)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
             .ignoresSafeArea()
         )
         .task { await runAsync(fix: false) }

@@ -11,22 +11,24 @@ extension Color {
         )
     }
 
-    static let ghmIndigo = Color(hex: 0x5B5CFF)
-    static let ghmViolet = Color(hex: 0xA855F7)
-    static let ghmTeal = Color(hex: 0x2DD4BF)
-    static let ghmMint = Color(hex: 0x34D399)
-    static let ghmSky = Color(hex: 0x38BDF8)
+    // Graphite glass palette: one restrained steel accent, everything else
+    // desaturated so the window reads as a macOS tool rather than artwork.
+    static let ghmAccent = Color(hex: 0x9DB3CC)
+    static let ghmPositive = Color(hex: 0x8FB39B)
+    static let ghmWarning = Color(hex: 0xC4A472)
+    static let ghmInfo = Color(hex: 0x93A9C4)
+    static let ghmDanger = Color(hex: 0xC49090)
 }
 
-/// Full-window backdrop. The glass panels refract these colours, which is what
-/// makes Liquid Glass read as glass instead of grey blur.
+/// Full-window backdrop. Kept almost neutral: the glass panels need something
+/// to refract, but the colour should never compete with the repository list.
 struct LiquidBackground: View {
     @State private var drift = false
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(hex: 0x070A18), Color(hex: 0x101534), Color(hex: 0x081820)],
+                colors: [Color(hex: 0x0B0D11), Color(hex: 0x11141A), Color(hex: 0x0C0F14)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -35,36 +37,31 @@ struct LiquidBackground: View {
                 let w = geo.size.width
                 let h = geo.size.height
                 Circle()
-                    .fill(Color.ghmIndigo.opacity(0.55))
-                    .frame(width: w * 0.55)
-                    .blur(radius: 130)
-                    .offset(x: drift ? -w * 0.12 : -w * 0.22, y: drift ? -h * 0.28 : -h * 0.18)
-
-                Circle()
-                    .fill(Color.ghmViolet.opacity(0.45))
-                    .frame(width: w * 0.5)
-                    .blur(radius: 150)
-                    .offset(x: drift ? w * 0.42 : w * 0.3, y: drift ? -h * 0.35 : -h * 0.22)
-
-                Circle()
-                    .fill(Color.ghmTeal.opacity(0.35))
+                    .fill(Color(hex: 0x5C708C).opacity(0.20))
                     .frame(width: w * 0.6)
-                    .blur(radius: 160)
-                    .offset(x: drift ? w * 0.1 : w * 0.02, y: drift ? h * 0.42 : h * 0.3)
+                    .blur(radius: 190)
+                    .offset(x: drift ? -w * 0.18 : -w * 0.24, y: drift ? -h * 0.26 : -h * 0.2)
+
+                Circle()
+                    .fill(Color(hex: 0x7A7468).opacity(0.12))
+                    .frame(width: w * 0.5)
+                    .blur(radius: 200)
+                    .offset(x: drift ? w * 0.36 : w * 0.28, y: drift ? h * 0.3 : h * 0.22)
             }
             .ignoresSafeArea()
 
-            // A faint noise-like sheen so the flat gradient does not band.
-            LinearGradient(
-                colors: [.white.opacity(0.08), .clear, .white.opacity(0.03)],
-                startPoint: .top,
-                endPoint: .bottom
+            // Vignette: pulls the eye to the centre and hides any gradient banding.
+            RadialGradient(
+                colors: [.clear, .black.opacity(0.28)],
+                center: .center,
+                startRadius: 160,
+                endRadius: 900
             )
             .ignoresSafeArea()
         }
         .ignoresSafeArea()
         .onAppear {
-            withAnimation(.easeInOut(duration: 22).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 30).repeatForever(autoreverses: true)) {
                 drift = true
             }
         }
@@ -143,28 +140,28 @@ struct StatePill: View {
 
     var body: some View {
         Text(repo.stateLabel)
-            .font(.caption2.weight(.semibold))
+            .font(.caption2.weight(.medium))
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .foregroundStyle(foreground)
             .background(background, in: .capsule)
             .overlay(
-                Capsule().strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+                Capsule().strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
             )
     }
 
     private var foreground: Color {
-        if repo.dirty > 0 { return .orange }
-        if repo.behind > 0 { return .ghmSky }
-        if repo.ahead > 0 { return .ghmMint }
+        if repo.dirty > 0 { return .ghmWarning }
+        if repo.behind > 0 { return .ghmInfo }
+        if repo.ahead > 0 { return .ghmPositive }
         return .secondary
     }
 
     private var background: Color {
-        if repo.dirty > 0 { return .orange.opacity(0.16) }
-        if repo.behind > 0 { return .ghmSky.opacity(0.16) }
-        if repo.ahead > 0 { return .ghmMint.opacity(0.16) }
-        return .white.opacity(0.07)
+        if repo.dirty > 0 { return .ghmWarning.opacity(0.12) }
+        if repo.behind > 0 { return .ghmInfo.opacity(0.12) }
+        if repo.ahead > 0 { return .ghmPositive.opacity(0.12) }
+        return .white.opacity(0.05)
     }
 }
 
@@ -176,25 +173,27 @@ struct Avatar: View {
         ZStack {
             Circle().fill(
                 LinearGradient(
-                    colors: tint,
+                    colors: [tint.opacity(0.85), tint.opacity(0.45)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
             Text(account.initials)
-                .font(.system(size: size * 0.36, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.system(size: size * 0.36, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.92))
         }
         .frame(width: size, height: size)
-        .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 0.8))
-        .shadow(color: tint.first?.opacity(0.35) ?? .clear, radius: 6, y: 2)
+        .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.8))
     }
 
-    private var tint: [Color] {
-        let palette: [[Color]] = [
-            [.ghmSky, .ghmIndigo],
-            [.ghmViolet, .pink],
-            [.ghmTeal, .ghmMint],
+    /// Muted stone tones, picked per login so accounts stay distinguishable
+    /// without turning the sidebar into a colour chart.
+    private var tint: Color {
+        let palette: [Color] = [
+            Color(hex: 0x6B7C93),
+            Color(hex: 0x7C7468),
+            Color(hex: 0x6E8076),
+            Color(hex: 0x7A6E7E),
         ]
         let sum = account.login.unicodeScalars.reduce(0) { $0 + Int($1.value) }
         return palette[sum % palette.count]

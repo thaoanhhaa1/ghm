@@ -55,14 +55,11 @@ struct AddAccountView: View {
     }
 
     private var sheetBackground: some View {
-        ZStack {
-            Color(hex: 0x0A0E20)
-            LinearGradient(
-                colors: [Color.ghmIndigo.opacity(0.45), Color.ghmViolet.opacity(0.25), Color.ghmTeal.opacity(0.18)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
+        LinearGradient(
+            colors: [Color(hex: 0x0E1116), Color(hex: 0x12161D)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
         .ignoresSafeArea()
     }
 
@@ -72,7 +69,7 @@ struct AddAccountView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 40, height: 40)
-                .glassPanel(14, tint: .ghmIndigo)
+                .glassPanel(14)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Add GitHub account")
                     .font(.title2.bold())
@@ -127,7 +124,7 @@ struct AddAccountView: View {
                     .textSelection(.enabled)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .glassPanel(14, tint: .ghmViolet)
+                    .glassPanel(14)
 
                 Button {
                     NSPasteboard.general.clearContents()
@@ -253,7 +250,6 @@ struct AddAccountView: View {
                     dismiss()
                 }
                 .buttonStyle(.glassProminent)
-                .tint(.ghmIndigo)
                 .keyboardShortcut(.defaultAction)
             } else if device != nil {
                 Button("Cancel", role: .cancel) { cancelDevice() }
@@ -263,7 +259,6 @@ struct AddAccountView: View {
                     .buttonStyle(.glass)
                 Button("Close") { dismiss() }
                     .buttonStyle(.glassProminent)
-                    .tint(.ghmIndigo)
                     .keyboardShortcut(.defaultAction)
             } else {
                 Button("Cancel", role: .cancel) { dismiss() }
@@ -271,13 +266,11 @@ struct AddAccountView: View {
                 if method == .browser {
                     Button(busy ? "Starting…" : "Start browser login") { startDevice() }
                         .buttonStyle(.glassProminent)
-                        .tint(.ghmIndigo)
                         .keyboardShortcut(.defaultAction)
                         .disabled(busy)
                 } else {
                     Button("Add token") { submitToken() }
                         .buttonStyle(.glassProminent)
-                        .tint(.ghmIndigo)
                         .keyboardShortcut(.defaultAction)
                         .disabled(busy || token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }

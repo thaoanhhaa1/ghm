@@ -617,3 +617,14 @@ Ba việc: icon `.icns`, giao diện Liquid Glass, và Sparkle auto-update.
 - App ký ad-hoc + chưa notarize; auto-update chạy được trên máy này nhưng phát hành cho máy khác cần Developer ID ổn định + notarization.
 - Icon hiện là file `.icns` cổ điển; macOS 26 còn hỗ trợ icon layered (Default/Dark/Clear/Tinted) qua `.icon` bundle — chưa làm.
 - CI/release GitHub Actions vẫn fail 3s/0 step nên chưa có release tự động; quy trình release đang thủ công.
+
+## 17. Giao diện trầm hơn — v0.7.1 (2026-11-25)
+
+Bản 0.7.0 bị chê "màu mè". Giữ Liquid Glass nhưng bỏ trang trí:
+
+- `LiquidBackground`: nền graphite `#0B0D11 → #11141A`, chỉ còn 2 quầng xám-xanh rất nhạt (opacity 0.20/0.12, blur ~190–200) thay cho 3 blob indigo/violet/teal đậm; thêm vignette. Drift chậm 30s.
+- Bảng màu mới: `ghmAccent` (steel `#9DB3CC`), `ghmPositive` (sage), `ghmWarning` (amber), `ghmInfo` (steel), `ghmDanger` (dusty red). Bỏ `ghmIndigo/Violet/Teal/Mint/Sky`.
+- Logo "ghm" màu trắng, bỏ gradient cầu vồng; selection sidebar tint `ghmAccent` 0.16 thay vì sky/violet 0.35; avatar dùng 4 tông đá trầm theo login; badge dirty/behind dùng amber/steel; bỏ shadow phát sáng ở chấm trạng thái.
+- Nút prominent không còn `.tint(.ghmIndigo)` — dùng accent hệ thống.
+- Sheet Add account/Doctor: nền `#0E1116 → #12161D`, icon và các card glass không tint.
+- Đo lại: saturation trung bình của cửa sổ 0.55 → 0.18; panel rgb(49,54,63) trên nền rgb(18,22,29) nên vẫn tách lớp rõ.

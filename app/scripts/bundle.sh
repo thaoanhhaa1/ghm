@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 CONFIG="${1:-release}"
 APP="build/ghm.app"
 BIN_DIR="$(swift build -c "$CONFIG" --product GhmApp --show-bin-path)"
-VERSION="${GHM_VERSION:-0.7.0}"
+VERSION="${GHM_VERSION:-0.7.1}"
 ROOT="$(cd .. && pwd)"
 
 swift build -c "$CONFIG" --product GhmApp
@@ -110,10 +110,19 @@ if [ "${GHM_MAKE_RELEASE:-0}" = "1" ]; then
   rm -f "$ZIP"
   ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
   SPARKLE_BIN="${SPARKLE_BIN:-.build/artifacts/sparkle/Sparkle/bin}"
-  "$SPARKLE_BIN/generate_appcast" "$DIST" \
+  # Stage only this archive: generate_appcast rewrites every item it finds to
+  # the given URL prefix, so an older zip left in dist/ would get a v$VERSION
+  # URL it does not live at.
+  STAGE="$DIST/.stage"
+  rm -rf "$STAGE"
+  mkdir -p "$STAGE"
+  cp "$ZIP" "$STAGE/"
+  "$SPARKLE_BIN/generate_appcast" "$STAGE" \
     --download-url-prefix "https://github.com/thaoanhhaa1/ghm/releases/download/v$VERSION/" \
     --link "https://github.com/thaoanhhaa1/ghm" \
     --maximum-deltas 0
+  mv "$STAGE/appcast.xml" "$DIST/appcast.xml"
+  rm -rf "$STAGE"
   echo "release assets in $DIST:"
   ls -la "$DIST"
 fi

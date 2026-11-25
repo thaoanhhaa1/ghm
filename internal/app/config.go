@@ -32,7 +32,7 @@ type Config struct {
 }
 
 const (
-	appVersion   = "0.7.0"
+	appVersion   = "0.7.1"
 	defaultRoot  = "~/work"
 	githubHost   = "github.com"
 	githubAPIURL = "https://api.github.com"

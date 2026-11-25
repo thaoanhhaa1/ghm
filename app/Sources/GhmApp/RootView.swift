@@ -92,13 +92,7 @@ private struct SidebarView: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("ghm")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.white, .ghmSky, .ghmViolet],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .foregroundStyle(.white.opacity(0.92))
                 Spacer()
                 GlassBadge(text: version, systemImage: "shippingbox")
             }
@@ -122,7 +116,7 @@ private struct SidebarView: View {
             HStack(spacing: 10) {
                 Image(systemName: "square.stack.3d.up.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(selected ? .white : .ghmSky)
+                    .foregroundStyle(selected ? .white : Color.ghmAccent)
                     .frame(width: 26, height: 26)
                     .background(.white.opacity(selected ? 0.18 : 0.06), in: .circle)
 
@@ -147,7 +141,7 @@ private struct SidebarView: View {
             .contentShape(.rect(cornerRadius: 14))
         }
         .buttonStyle(.plain)
-        .modifier(SidebarSelection(selected: selected, tint: .ghmSky))
+        .modifier(SidebarSelection(selected: selected, tint: .ghmAccent))
         .glassEffectID("all", in: selection)
     }
 
@@ -174,11 +168,11 @@ private struct SidebarView: View {
                 HStack(spacing: 4) {
                     if !account.keyOK {
                         Image(systemName: "key.slash")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.ghmWarning)
                     }
                     if !account.tokenOK {
                         Image(systemName: "keyboard.badge.ellipsis")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.ghmDanger)
                     }
                     Text("\(account.repos)")
                         .font(.caption2.monospacedDigit())
@@ -190,7 +184,7 @@ private struct SidebarView: View {
             .contentShape(.rect(cornerRadius: 14))
         }
         .buttonStyle(.plain)
-        .modifier(SidebarSelection(selected: selected, tint: .ghmViolet))
+        .modifier(SidebarSelection(selected: selected, tint: .ghmAccent))
         .glassEffectID(account.login, in: selection)
     }
 
@@ -203,7 +197,6 @@ private struct SidebarView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glassProminent)
-            .tint(.ghmIndigo)
             .keyboardShortcut("n", modifiers: [.command, .shift])
             .help("Add a GitHub account")
 
@@ -244,9 +237,8 @@ private struct SidebarView: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(model.active.isEmpty ? Color.orange : Color.ghmMint)
+                    .fill(model.active.isEmpty ? Color.ghmWarning : Color.ghmPositive)
                     .frame(width: 6, height: 6)
-                    .shadow(color: (model.active.isEmpty ? Color.orange : Color.ghmMint).opacity(0.7), radius: 4)
                 Text(model.active.isEmpty ? "gh: no active login" : "gh active: \(model.active)")
                     .lineLimit(1)
             }
@@ -270,7 +262,7 @@ private struct SidebarSelection: ViewModifier {
 
     func body(content: Content) -> some View {
         content.glassEffect(
-            selected ? .regular.tint(tint.opacity(0.35)).interactive() : .identity,
+            selected ? .regular.tint(tint.opacity(0.16)).interactive() : .identity,
             in: .rect(cornerRadius: 14)
         )
     }
@@ -323,10 +315,10 @@ private struct RepoDetailView: View {
                 Spacer()
 
                 if model.dirtyCount > 0 {
-                    GlassBadge(text: "\(model.dirtyCount) dirty", systemImage: "pencil.line", tint: .orange)
+                    GlassBadge(text: "\(model.dirtyCount) dirty", systemImage: "pencil.line", tint: .ghmWarning)
                 }
                 if model.behindCount > 0 {
-                    GlassBadge(text: "\(model.behindCount) behind", systemImage: "arrow.down", tint: .ghmSky)
+                    GlassBadge(text: "\(model.behindCount) behind", systemImage: "arrow.down", tint: .ghmInfo)
                 }
 
                 GlassIconButton(systemImage: "arrow.clockwise", help: "Rescan (⌘R)") {
@@ -341,7 +333,6 @@ private struct RepoDetailView: View {
                     Label("Add account", systemImage: "person.badge.plus")
                 }
                 .buttonStyle(.glassProminent)
-                .tint(.ghmIndigo)
                 .controlSize(.small)
             }
 
@@ -397,9 +388,7 @@ private struct RepoDetailView: View {
         VStack(spacing: 12) {
             Image(systemName: model.search.isEmpty ? "tray" : "magnifyingglass")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(
-                    LinearGradient(colors: [.ghmSky, .ghmViolet], startPoint: .top, endPoint: .bottom)
-                )
+                .foregroundStyle(.secondary)
             Text(model.search.isEmpty ? "No repositories for this account" : "No match for “\(model.search)”")
                 .font(.headline)
             Text(model.search.isEmpty
@@ -482,7 +471,7 @@ private struct RepoDetailView: View {
             if let repo = selectedPath.flatMap({ model.repo(for: $0) }) {
                 Image(systemName: "folder.fill")
                     .font(.caption2)
-                    .foregroundStyle(Color.ghmSky)
+                    .foregroundStyle(Color.ghmInfo)
                 Text(repo.tildePath)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
@@ -502,9 +491,9 @@ private struct RepoDetailView: View {
                 Text("\(model.filteredRepos.count) repositories")
                     .foregroundStyle(.secondary)
                 Text("\(model.dirtyCount) dirty")
-                    .foregroundStyle(model.dirtyCount > 0 ? Color.orange : Color.secondary)
+                    .foregroundStyle(model.dirtyCount > 0 ? Color.ghmWarning : Color.secondary)
                 Text("\(model.behindCount) behind")
-                    .foregroundStyle(model.behindCount > 0 ? Color.ghmSky : Color.secondary)
+                    .foregroundStyle(model.behindCount > 0 ? Color.ghmInfo : Color.secondary)
 
                 Spacer()
 
@@ -551,7 +540,7 @@ private struct RepoRow: View {
             HStack(spacing: 8) {
                 Image(systemName: repo.isGitHub ? "chevron.left.forwardslash.chevron.right" : "shippingbox")
                     .font(.caption)
-                    .foregroundStyle(selected ? .white : .ghmSky.opacity(0.8))
+                    .foregroundStyle(selected ? .white.opacity(0.9) : .secondary)
                     .frame(width: 16)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(repo.displayName)
@@ -584,12 +573,12 @@ private struct RepoRow: View {
 
             Text("\(repo.ahead)")
                 .font(.caption.monospacedDigit())
-                .foregroundStyle(repo.ahead > 0 ? Color.ghmMint : Color.secondary)
+                .foregroundStyle(repo.ahead > 0 ? Color.ghmPositive : Color.secondary)
                 .frame(width: numberWidth, alignment: .trailing)
 
             Text("\(repo.behind)")
                 .font(.caption.monospacedDigit())
-                .foregroundStyle(repo.behind > 0 ? Color.ghmSky : Color.secondary)
+                .foregroundStyle(repo.behind > 0 ? Color.ghmInfo : Color.secondary)
                 .frame(width: numberWidth, alignment: .trailing)
 
             StatePill(repo: repo)
