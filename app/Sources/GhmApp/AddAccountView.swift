@@ -49,30 +49,31 @@ struct AddAccountView: View {
             footer
         }
         .padding(26)
-        .frame(width: 620, height: 520)
+        .frame(width: 640, height: 540)
         .background(sheetBackground)
         .onDisappear { pollTask?.cancel() }
     }
 
     private var sheetBackground: some View {
-        LinearGradient(
-            colors: [Color(hex: 0x0E1116), Color(hex: 0x12161D)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
+        SheetBackdrop()
     }
 
     private var header: some View {
         HStack(spacing: 12) {
             Image(systemName: "person.badge.plus")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 40, height: 40)
-                .glassPanel(14)
+                .frame(width: 44, height: 44)
+                .background(
+                    LinearGradient(colors: [.iosBlue, .iosIndigo], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: .rect(cornerRadius: 12)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.30), lineWidth: 0.7)
+                )
             VStack(alignment: .leading, spacing: 2) {
                 Text("Add GitHub account")
-                    .font(.title2.bold())
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
                 Text("ghm creates the SSH key, host alias, git config and folder.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -120,11 +121,12 @@ struct AddAccountView: View {
 
             HStack(spacing: 12) {
                 Text(device.userCode)
-                    .font(.system(size: 30, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 32, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .glassPanel(14)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .glassEffect(.regular.tint(.iosBlue.opacity(0.25)), in: .rect(cornerRadius: 18))
 
                 Button {
                     NSPasteboard.general.clearContents()
@@ -132,6 +134,8 @@ struct AddAccountView: View {
                 } label: {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.capsule)
             }
 
             Button {
@@ -141,6 +145,8 @@ struct AddAccountView: View {
             } label: {
                 Label("Open \(device.verificationURI)", systemImage: "safari")
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.capsule)
 
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
@@ -167,9 +173,12 @@ struct AddAccountView: View {
             SecureField("github_pat_… or ghp_…", text: $token)
                 .textFieldStyle(.plain)
                 .font(.body.monospaced())
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .glassPanel(12)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.white.opacity(0.10), in: .rect(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14).strokeBorder(.white.opacity(0.12), lineWidth: 0.6)
+                )
                 .disabled(busy)
 
             if let url = URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org,admin:public_key&description=ghm") {
@@ -213,9 +222,9 @@ struct AddAccountView: View {
                             .textSelection(.enabled)
                     }
                 }
-                .padding(10)
+                .padding(12)
             }
-            .glassPanel(16)
+            .glassPanel(18)
         }
     }
 
@@ -246,31 +255,43 @@ struct AddAccountView: View {
             if result != nil {
                 Button("Add another") { reset() }
                     .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
                 Button("Done") {
                     dismiss()
                 }
                 .buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .tint(.iosBlue)
                 .keyboardShortcut(.defaultAction)
             } else if device != nil {
                 Button("Cancel", role: .cancel) { cancelDevice() }
                     .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
             } else if failure != nil {
                 Button("Try again") { reset() }
                     .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
                 Button("Close") { dismiss() }
                     .buttonStyle(.glassProminent)
+                    .buttonBorderShape(.capsule)
+                    .tint(.iosBlue)
                     .keyboardShortcut(.defaultAction)
             } else {
                 Button("Cancel", role: .cancel) { dismiss() }
                     .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
                 if method == .browser {
                     Button(busy ? "Starting…" : "Start browser login") { startDevice() }
                         .buttonStyle(.glassProminent)
+                        .buttonBorderShape(.capsule)
+                        .tint(.iosBlue)
                         .keyboardShortcut(.defaultAction)
                         .disabled(busy)
                 } else {
                     Button("Add token") { submitToken() }
                         .buttonStyle(.glassProminent)
+                        .buttonBorderShape(.capsule)
+                        .tint(.iosBlue)
                         .keyboardShortcut(.defaultAction)
                         .disabled(busy || token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }

@@ -628,3 +628,29 @@ Bản 0.7.0 bị chê "màu mè". Giữ Liquid Glass nhưng bỏ trang trí:
 - Nút prominent không còn `.tint(.ghmIndigo)` — dùng accent hệ thống.
 - Sheet Add account/Doctor: nền `#0E1116 → #12161D`, icon và các card glass không tint.
 - Đo lại: saturation trung bình của cửa sổ 0.55 → 0.18; panel rgb(49,54,63) trên nền rgb(18,22,29) nên vẫn tách lớp rõ.
+
+## 18. Giao diện Liquid Glass kiểu iOS 26 — v0.8.0 (2026-11-25)
+
+Yêu cầu: "chuyển UI sang kiểu liquid glass của iPhone". Bỏ tông graphite trầm, dựng lại theo ngôn ngữ iOS 26.
+
+### Nền wallpaper
+- `LiquidBackground`: nền `#05060F → #0B0A20 → #140A24` + 4 quầng màu hệ iOS (blue 0.42, indigo 0.38, purple 0.16, teal 0.16, blur 170–200), phủ `black 0.5` + vignette để chữ trắng vẫn đọc được. Bỏ animation drift: nó ngốn ~20% CPU thường trực, đổi thành tĩnh (0% khi idle).
+
+### Đảo kính
+- Layout mới: top bar / HStack(accounts 278pt, repositories) / bottom bar — mỗi thứ là một đảo `.glassEffect(.regular)` bo 24–30, cách nhau 12pt, viền specular gradient trắng 0.32→0.02.
+- `GlassEffectContainer` **phải nằm trong ScrollView**; nếu bọc cả ScrollView thì cửa sổ không bao giờ hiện (layout loop, CPU 13%, không có AXWindow).
+- Selection lens: `.glassEffect(.regular.tint(.white.opacity(0.14)).interactive())` + `glassEffectID` trong container → lens morph giữa các account. Đo ảnh: row chọn rgb(57,83,121) vs row thường rgb(33,64,98).
+- Top bar: icon app gradient blue→indigo, wordmark, search capsule (fill trắng 0.10, không glass-on-glass), badge dirty/behind, 2 nút tròn, *Add account* capsule prominent.
+- Bottom bar kiểu tab bar: path repo đang chọn + subtitle, rồi Fetch/Pull/Push/GitHub/Health dạng icon+label (`ActionBarItem`), nút `+` tròn; item bị disable khi chưa chọn repo.
+- Avatar: gradient hệ iOS (blue/indigo, purple/pink, teal/blue, orange/pink).
+
+### Sheet
+- `SheetBackdrop` dùng chung: nền indigo + 3 quầng blue/purple/pink.
+- Icon tiêu đề thành rounded-square gradient như app icon; field token là capsule fill trắng 0.10; code device glass tint blue; footer button toàn capsule; *Start browser login* / *Add token* / *Fix issues* prominent.
+
+### Kiểm chứng
+- Mở app: không còn layout loop, CPU idle 0.0%, AX thấy đủ top bar/sidebar/list/bottom bar.
+- Ảnh chụp 1920×1050: nền rgb(5,26,52), sidebar rgb(29,59,91), content rgb(39,45,82) → panel tối, chữ trắng tương phản tốt; saturation 0.61 (đúng chất wallpaper iPhone).
+- Sheet Add account: OCR thấy tiêu đề, mô tả, Browser/Token, nút Cancel + Start browser login; nền rgb(45,37,83), nút chính rgb(48,124,200).
+- Health sheet: 23 ok, badge ok/warn/fail bằng `GlassBadge`.
+- Update 0.7.1 → 0.8.0 qua feed GitHub thật (xem mục 17): *"ghm 0.8.0 is now available"* → Install → bundle thành 0.8.0.

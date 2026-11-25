@@ -135,10 +135,12 @@ make app                  # builds ~/.local/bin/ghm, bundles it, signs ad-hoc
 open app/build/ghm.app
 ```
 
-The UI is **Liquid Glass** (`glassEffect`, `GlassEffectContainer`, glass buttons) over a near-neutral graphite background, with a generated `.icns` icon (`make icon`). Colour is reserved for state — amber for dirty trees, steel for behind, sage for ahead — so the list stays calm in a window you keep open all day. Requirements: **macOS 26+**, Xcode command line tools (`swift`), and Go. `make app` copies the `ghm` binary inside the bundle, so Finder launches work even though `~/.local/bin` is not on the GUI `PATH`, and embeds `Sparkle.framework` for updates.
+The UI follows the **iOS 26 Liquid Glass** language: a wallpaper of soft blue/indigo/purple blooms, three floating glass islands (top bar, accounts, repositories), a floating bottom action bar, capsule buttons and a selection lens that slides between accounts. Colour is dimmed behind the glass so white text stays readable; a generated `.icns` icon ships with the bundle (`make icon`). Requirements: **macOS 26+**, Xcode command line tools (`swift`), and Go. `make app` copies the `ghm` binary inside the bundle, so Finder launches work even though `~/.local/bin` is not on the GUI `PATH`, and embeds `Sparkle.framework` for updates.
 
-- **Sidebar** — glass panel with a muted avatar per login, repo counts, missing key/token badges, and Manage actions.
-- **Repositories** — custom glass list with repository, account avatar, branch, ahead/behind, dirty state. Click to select, double-click to open on GitHub, right-click for fetch/pull/push, reveal in Finder, copy path. `⌘R` rescans.
+- **Accounts island** — vivid avatar per login, repo counts, missing key/token badges, a glass selection lens, and Manage actions.
+- **Repositories island** — custom list with repository, account avatar, branch, ahead/behind, dirty state. Click to select, double-click to open on GitHub, right-click for fetch/pull/push, reveal in Finder, copy path. `⌘R` rescans.
+- **Top bar** — search, dirty/behind counters, rescan, health, *Add account*.
+- **Bottom bar** — the selected checkout with Fetch / Pull / Push / GitHub / Health and a quick add button.
 - **Health checks** — `ghm doctor`, plus a *Fix issues* button (`ghm doctor --fix`).
 - **Add account…** (`⇧⌘N`) — two paths, both keeping credentials in the `gh` keyring:
   - *Browser*: device flow. The app shows the code, opens `github.com/login/device`, polls until you approve. No terminal, no copy-pasting commands.

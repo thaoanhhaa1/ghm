@@ -10,25 +10,30 @@ struct DoctorView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "stethoscope")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .glassPanel(14)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        LinearGradient(colors: [.iosTeal, .iosBlue], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: .rect(cornerRadius: 12)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.30), lineWidth: 0.7)
+                    )
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Health checks")
-                        .font(.title2.bold())
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
                     Text("ghm doctor")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 if let payload {
-                    Text("\(payload.ok) ok")
-                        .foregroundStyle(.green)
-                    Text("\(payload.warn) warn")
-                        .foregroundStyle(payload.warn > 0 ? .orange : .secondary)
-                    Text("\(payload.fail) fail")
-                        .foregroundStyle(payload.fail > 0 ? .red : .secondary)
+                    GlassBadge(text: "\(payload.ok) ok", systemImage: "checkmark.circle.fill", tint: .ghmPositive)
+                    GlassBadge(text: "\(payload.warn) warn", systemImage: "exclamationmark.triangle.fill",
+                               tint: payload.warn > 0 ? .ghmWarning : .secondary)
+                    GlassBadge(text: "\(payload.fail) fail", systemImage: "xmark.octagon.fill",
+                               tint: payload.fail > 0 ? .ghmDanger : .secondary)
                 }
             }
             .font(.callout.weight(.medium))
@@ -41,9 +46,9 @@ struct DoctorView: View {
                         .font(.callout)
                         .textSelection(.enabled)
                 }
-                .padding(10)
+                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .glassPanel(14, tint: .red)
+                .glassEffect(.regular.tint(.iosPink.opacity(0.22)), in: .rect(cornerRadius: 18))
             } else if let payload {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -69,7 +74,7 @@ struct DoctorView: View {
                         }
                     }
                 }
-                .glassPanel(16)
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
             } else {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -85,33 +90,30 @@ struct DoctorView: View {
                 Spacer()
                 Button("Run again") { run(fix: false) }
                     .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
                     .disabled(busy)
                 Button("Fix issues") { run(fix: true) }
                     .buttonStyle(.glassProminent)
+                    .buttonBorderShape(.capsule)
+                    .tint(.iosTeal)
                     .disabled(busy)
                 Button("Close") { dismiss() }
                     .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(22)
         .frame(width: 680, height: 600)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: 0x0E1116), Color(hex: 0x12161D)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
+        .background(SheetBackdrop())
         .task { await runAsync(fix: false) }
     }
 
     private func color(for level: String) -> Color {
         switch level {
-        case "ok": return .green
-        case "warn": return .orange
-        default: return .red
+        case "ok": return .ghmPositive
+        case "warn": return .ghmWarning
+        default: return .ghmDanger
         }
     }
 

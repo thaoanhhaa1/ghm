@@ -11,16 +11,20 @@ struct RootView: View {
         ZStack {
             LiquidBackground()
 
-            HStack(spacing: 14) {
-                SidebarView(showAdd: $showAdd, showDoctor: $showDoctor)
-                    .frame(width: 272)
-                RepoDetailView(
-                    selectedPath: $selectedPath,
-                    showAdd: $showAdd,
-                    showDoctor: $showDoctor
-                )
+            VStack(spacing: 12) {
+                TopBar(showAdd: $showAdd, showDoctor: $showDoctor)
+
+                HStack(spacing: 12) {
+                    AccountsPanel(showAdd: $showAdd, showDoctor: $showDoctor)
+                        .frame(width: 278)
+                    ReposPanel(selectedPath: $selectedPath)
+                }
+
+                BottomBar(selectedPath: $selectedPath, showAdd: $showAdd, showDoctor: $showDoctor)
             }
-            .padding(.init(top: 30, leading: 14, bottom: 14, trailing: 14))
+            .padding(.horizontal, 16)
+            .padding(.top, 40)
+            .padding(.bottom, 14)
         }
         .sheet(isPresented: $showAdd) {
             AddAccountView()
@@ -47,78 +51,204 @@ struct RootView: View {
     }
 }
 
-// MARK: - Sidebar
+// MARK: - Top bar (navigation bar)
 
-private struct SidebarView: View {
+private struct TopBar: View {
     @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var updater: UpdaterModel
     @Binding var showAdd: Bool
     @Binding var showDoctor: Bool
-    @Namespace private var selection
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("REPOSITORIES")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 10)
-
-                    allRow
-
-                    ForEach(model.accounts) { account in
-                        accountRow(account)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-            .scrollIndicators(.hidden)
-
-            Spacer(minLength: 0)
-
-            manage
-
-            footer
-        }
-        .padding(14)
-        .glassPanel(28)
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(spacing: 12) {
+            HStack(spacing: 9) {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 27, height: 27)
+                    .background(
+                        LinearGradient(
+                            colors: [.iosBlue, .iosIndigo],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: .rect(cornerRadius: 9)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9)
+                            .strokeBorder(.white.opacity(0.35), lineWidth: 0.7)
+                    )
                 Text("ghm")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.92))
-                Spacer()
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
                 GlassBadge(text: version, systemImage: "shippingbox")
             }
 
-            Text("One machine, every GitHub account")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            search
+                .frame(minWidth: 260, idealWidth: 380, maxWidth: 520)
+
+            Spacer(minLength: 8)
+
+            if model.dirtyCount > 0 {
+                GlassBadge(text: "\(model.dirtyCount)", systemImage: "pencil.line", tint: .ghmWarning)
+            }
+            if model.behindCount > 0 {
+                GlassBadge(text: "\(model.behindCount)", systemImage: "arrow.down", tint: .ghmInfo)
+            }
+
+            GlassIconButton(systemImage: "arrow.clockwise", help: "Rescan (⌘R)") {
+                Task { await model.refresh() }
+            }
+            GlassIconButton(systemImage: "stethoscope", help: "Health checks") {
+                showDoctor = true
+            }
+
+            Button {
+                showAdd = true
+            } label: {
+                Label("Add account", systemImage: "person.badge.plus")
+                    .labelStyle(.titleAndIcon)
+            }
+            .buttonStyle(.glassProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.iosBlue)
+            .controlSize(.regular)
+            .keyboardShortcut("n", modifiers: [.command, .shift])
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .glassPanel(24)
     }
 
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
     }
 
+    private var search: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.callout)
+                .foregroundStyle(.tertiary)
+            TextField("Search repositories", text: $model.search)
+                .textFieldStyle(.plain)
+                .font(.callout)
+            if !model.search.isEmpty {
+                Button {
+                    model.search = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 6)
+        .background(.white.opacity(0.10), in: .capsule)
+        .overlay(Capsule().strokeBorder(.white.opacity(0.10), lineWidth: 0.5))
+    }
+}
+
+// MARK: - Accounts (sidebar island)
+
+private struct AccountsPanel: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var updater: UpdaterModel
+    @Binding var showAdd: Bool
+    @Binding var showDoctor: Bool
+    @Namespace private var lens
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Text("Accounts")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(model.accounts.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                GlassIconButton(systemImage: "arrow.triangle.2.circlepath", help: "Check for updates") {
+                    updater.checkForUpdates()
+                }
+            }
+            .padding(.leading, 6)
+
+            ScrollView {
+                GlassEffectContainer(spacing: 8) {
+                    VStack(spacing: 4) {
+                        allRow
+                        ForEach(model.accounts) { account in
+                            accountRow(account)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            .scrollIndicators(.hidden)
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 8) {
+                Button {
+                    showAdd = true
+                } label: {
+                    Label("Add account", systemImage: "person.badge.plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .tint(.iosBlue)
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+
+                HStack(spacing: 8) {
+                    Button {
+                        showDoctor = true
+                    } label: {
+                        Label("Health", systemImage: "stethoscope")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+
+                    Button {
+                        Task { await model.refresh() }
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                    .keyboardShortcut("r")
+                    .disabled(model.loading)
+                }
+            }
+            .controlSize(.small)
+
+            footer
+        }
+        .padding(14)
+        .glassPanel(30)
+    }
+
     private var allRow: some View {
         let selected = model.selectedLogin.isEmpty
         return Button {
-            withAnimation(.smooth(duration: 0.22)) { model.selectedLogin = "" }
+            withAnimation(.smooth(duration: 0.28, extraBounce: 0.06)) {
+                model.selectedLogin = ""
+            }
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "square.stack.3d.up.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(selected ? .white : Color.ghmAccent)
-                    .frame(width: 26, height: 26)
-                    .background(.white.opacity(selected ? 0.18 : 0.06), in: .circle)
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        LinearGradient(
+                            colors: selected ? [.iosBlue, .iosIndigo] : [.white.opacity(0.16), .white.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: .circle
+                    )
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("All repositories")
@@ -133,22 +263,24 @@ private struct SidebarView: View {
                 if selected {
                     Image(systemName: "checkmark")
                         .font(.caption2.bold())
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(.white)
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 9)
             .padding(.vertical, 7)
-            .contentShape(.rect(cornerRadius: 14))
+            .contentShape(.rect(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .modifier(SidebarSelection(selected: selected, tint: .ghmAccent))
-        .glassEffectID("all", in: selection)
+        .modifier(LensSelection(selected: selected))
+        .glassEffectID("all", in: lens)
     }
 
     private func accountRow(_ account: Account) -> some View {
         let selected = model.selectedLogin == account.login
         return Button {
-            withAnimation(.smooth(duration: 0.22)) { model.selectedLogin = account.login }
+            withAnimation(.smooth(duration: 0.28, extraBounce: 0.06)) {
+                model.selectedLogin = account.login
+            }
         } label: {
             HStack(spacing: 10) {
                 Avatar(account: account)
@@ -165,7 +297,7 @@ private struct SidebarView: View {
 
                 Spacer(minLength: 4)
 
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     if !account.keyOK {
                         Image(systemName: "key.slash")
                             .foregroundStyle(Color.ghmWarning)
@@ -179,58 +311,13 @@ private struct SidebarView: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 9)
             .padding(.vertical, 7)
-            .contentShape(.rect(cornerRadius: 14))
+            .contentShape(.rect(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .modifier(SidebarSelection(selected: selected, tint: .ghmAccent))
-        .glassEffectID(account.login, in: selection)
-    }
-
-    private var manage: some View {
-        VStack(spacing: 6) {
-            Button {
-                showAdd = true
-            } label: {
-                Label("Add account", systemImage: "person.badge.plus")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glassProminent)
-            .keyboardShortcut("n", modifiers: [.command, .shift])
-            .help("Add a GitHub account")
-
-            HStack(spacing: 6) {
-                Button {
-                    showDoctor = true
-                } label: {
-                    Label("Health", systemImage: "stethoscope")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glass)
-                .help("Run ghm doctor")
-
-                Button {
-                    Task { await model.refresh() }
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glass)
-                .keyboardShortcut("r")
-                .disabled(model.loading)
-            }
-
-            Button {
-                updater.checkForUpdates()
-            } label: {
-                Label("Check for updates", systemImage: "arrow.triangle.2.circlepath")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glass)
-            .help("Sparkle update check")
-        }
-        .controlSize(.small)
+        .modifier(LensSelection(selected: selected))
+        .glassEffectID(account.login, in: lens)
     }
 
     private var footer: some View {
@@ -252,39 +339,40 @@ private struct SidebarView: View {
         .foregroundStyle(.secondary)
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassPanel(14)
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
 }
 
-private struct SidebarSelection: ViewModifier {
+/// The iOS 26 "lens": the selected item gets its own piece of glass, which
+/// morphs between rows through the shared namespace.
+private struct LensSelection: ViewModifier {
     let selected: Bool
-    let tint: Color
 
     func body(content: Content) -> some View {
         content.glassEffect(
-            selected ? .regular.tint(tint.opacity(0.16)).interactive() : .identity,
-            in: .rect(cornerRadius: 14)
+            selected ? .regular.tint(.white.opacity(0.14)).interactive() : .identity,
+            in: .rect(cornerRadius: 16)
         )
     }
 }
 
-// MARK: - Detail
+// MARK: - Repositories (content island)
 
-private struct RepoDetailView: View {
+private struct ReposPanel: View {
     @EnvironmentObject private var model: AppModel
     @Binding var selectedPath: String?
-    @Binding var showAdd: Bool
-    @Binding var showDoctor: Bool
     @State private var hovered: String?
 
-    private let accountWidth: CGFloat = 126
+    private let accountWidth: CGFloat = 128
     private let branchWidth: CGFloat = 150
-    private let numberWidth: CGFloat = 38
+    private let numberWidth: CGFloat = 36
     private let stateWidth: CGFloat = 92
 
     var body: some View {
         VStack(spacing: 10) {
             header
+
+            Divider().overlay(.white.opacity(0.08))
 
             if model.loading && model.repos.isEmpty {
                 loading
@@ -293,74 +381,27 @@ private struct RepoDetailView: View {
             } else {
                 list
             }
-
-            statusBar
         }
-        .padding(14)
-        .glassPanel(28)
+        .padding(16)
+        .glassPanel(30)
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(model.title)
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                if model.dirtyCount > 0 {
-                    GlassBadge(text: "\(model.dirtyCount) dirty", systemImage: "pencil.line", tint: .ghmWarning)
-                }
-                if model.behindCount > 0 {
-                    GlassBadge(text: "\(model.behindCount) behind", systemImage: "arrow.down", tint: .ghmInfo)
-                }
-
-                GlassIconButton(systemImage: "arrow.clockwise", help: "Rescan (⌘R)") {
-                    Task { await model.refresh() }
-                }
-                GlassIconButton(systemImage: "stethoscope", help: "Health checks") {
-                    showDoctor = true
-                }
-                Button {
-                    showAdd = true
-                } label: {
-                    Label("Add account", systemImage: "person.badge.plus")
-                }
-                .buttonStyle(.glassProminent)
-                .controlSize(.small)
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.title)
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
-            HStack(spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                    TextField("Filter by repository, branch or path", text: $model.search)
-                        .textFieldStyle(.plain)
-                        .font(.callout)
-                    if !model.search.isEmpty {
-                        Button {
-                            model.search = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.tertiary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 11)
-                .padding(.vertical, 7)
-                .glassPanel(12)
+            Spacer()
 
-                Spacer()
-
-                GlassBadge(text: "\(model.filteredRepos.count) repos", systemImage: "folder")
+            GlassBadge(text: "\(model.filteredRepos.count) repos", systemImage: "folder")
+            if !model.search.isEmpty {
+                GlassBadge(text: "“\(model.search)”", systemImage: "line.3.horizontal.decrease")
             }
         }
     }
@@ -381,13 +422,12 @@ private struct RepoDetailView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .glassPanel(20)
     }
 
     private var empty: some View {
         VStack(spacing: 12) {
             Image(systemName: model.search.isEmpty ? "tray" : "magnifyingglass")
-                .font(.system(size: 36, weight: .light))
+                .font(.system(size: 38, weight: .light))
                 .foregroundStyle(.secondary)
             Text(model.search.isEmpty ? "No repositories for this account" : "No match for “\(model.search)”")
                 .font(.headline)
@@ -398,19 +438,16 @@ private struct RepoDetailView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .glassPanel(20)
     }
 
     private var list: some View {
         VStack(spacing: 0) {
             headerRow
                 .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-
-            Divider().overlay(.white.opacity(0.08))
+                .padding(.bottom, 6)
 
             ScrollView {
-                LazyVStack(spacing: 4) {
+                LazyVStack(spacing: 2) {
                     ForEach(model.filteredRepos) { repo in
                         RepoRow(
                             repo: repo,
@@ -429,7 +466,7 @@ private struct RepoDetailView: View {
                             }
                         }
                         .onTapGesture {
-                            withAnimation(.smooth(duration: 0.15)) {
+                            withAnimation(.smooth(duration: 0.16)) {
                                 selectedPath = repo.path
                             }
                         }
@@ -441,15 +478,9 @@ private struct RepoDetailView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
+                .padding(.vertical, 4)
             }
         }
-        .background(.black.opacity(0.12), in: .rect(cornerRadius: 18))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(.white.opacity(0.06), lineWidth: 0.5)
-        )
     }
 
     private var headerRow: some View {
@@ -462,64 +493,107 @@ private struct RepoDetailView: View {
             Text("↓").frame(width: numberWidth, alignment: .trailing)
             Text("STATE").frame(width: stateWidth, alignment: .trailing)
         }
-        .font(.caption2.weight(.semibold))
+        .font(.system(size: 10, weight: .semibold))
         .foregroundStyle(.tertiary)
     }
+}
 
-    private var statusBar: some View {
-        HStack(spacing: 10) {
-            if let repo = selectedPath.flatMap({ model.repo(for: $0) }) {
-                Image(systemName: "folder.fill")
-                    .font(.caption2)
-                    .foregroundStyle(Color.ghmInfo)
-                Text(repo.tildePath)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+// MARK: - Bottom bar (tab bar pattern)
 
-                Spacer()
+private struct BottomBar: View {
+    @EnvironmentObject private var model: AppModel
+    @Binding var selectedPath: String?
+    @Binding var showAdd: Bool
+    @Binding var showDoctor: Bool
 
-                Button("Fetch") { Task { await model.run("fetch", on: repo) } }
-                Button("Pull") { Task { await model.run("pull", on: repo) } }
-                Button("Push") { Task { await model.run("push", on: repo) } }
-                GlassIconButton(systemImage: "arrow.up.right.square", help: "Open on GitHub") {
-                    model.openInBrowser(repo)
+    private var repo: Repo? {
+        selectedPath.flatMap { model.repo(for: $0) }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 7) {
+                Image(systemName: repo == nil ? "point.3.connected.trianglepath.dotted" : "folder.fill")
+                    .font(.caption)
+                    .foregroundStyle(repo == nil ? Color.secondary : Color.ghmInfo)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(repo?.tildePath ?? "\(model.filteredRepos.count) repositories")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(repo == nil ? Color.secondary : Color.primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(repoSubtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
                 }
-                .disabled(repo.githubURL == nil)
-            } else {
-                Text("\(model.filteredRepos.count) repositories")
-                    .foregroundStyle(.secondary)
-                Text("\(model.dirtyCount) dirty")
-                    .foregroundStyle(model.dirtyCount > 0 ? Color.ghmWarning : Color.secondary)
-                Text("\(model.behindCount) behind")
-                    .foregroundStyle(model.behindCount > 0 ? Color.ghmInfo : Color.secondary)
-
-                Spacer()
-
                 if model.runningAction {
                     ProgressView().controlSize(.small)
                 }
-                if let message = model.actionMessage {
-                    Text(message)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .transition(.opacity)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 6)
+
+            if let message = model.actionMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .transition(.opacity)
+            }
+
+            Divider().frame(height: 26).overlay(.white.opacity(0.12))
+
+            HStack(spacing: 2) {
+                ActionBarItem(systemImage: "arrow.down.circle", title: "Fetch", enabled: repo != nil) {
+                    if let repo { Task { await model.run("fetch", on: repo) } }
                 }
-                if let last = model.lastRefresh {
-                    Text(last, style: .time)
-                        .foregroundStyle(.tertiary)
+                ActionBarItem(systemImage: "arrow.down.to.line", title: "Pull", enabled: repo != nil) {
+                    if let repo { Task { await model.run("pull", on: repo) } }
+                }
+                ActionBarItem(systemImage: "arrow.up.to.line", title: "Push", enabled: repo != nil) {
+                    if let repo { Task { await model.run("push", on: repo) } }
+                }
+                ActionBarItem(
+                    systemImage: "arrow.up.right.square",
+                    title: "GitHub",
+                    enabled: repo?.githubURL != nil
+                ) {
+                    if let repo { model.openInBrowser(repo) }
+                }
+                ActionBarItem(systemImage: "stethoscope", title: "Health") {
+                    showDoctor = true
                 }
             }
+
+            Divider().frame(height: 26).overlay(.white.opacity(0.12))
+
+            Button {
+                showAdd = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .bold))
+                    .frame(width: 22, height: 22)
+            }
+            .buttonStyle(.glassProminent)
+            .buttonBorderShape(.circle)
+            .tint(.iosBlue)
+            .help("Add account (⇧⌘N)")
         }
-        .font(.caption)
-        .buttonStyle(.glass)
-        .controlSize(.small)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .glassPanel(14)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .glassPanel(26)
         .animation(.smooth(duration: 0.2), value: model.actionMessage)
         .animation(.smooth(duration: 0.2), value: selectedPath)
+    }
+
+    private var repoSubtitle: String {
+        guard let repo else {
+            return "\(model.dirtyCount) dirty · \(model.behindCount) behind"
+        }
+        return [repo.login, repo.branch].filter { !$0.isEmpty }.joined(separator: " · ")
+            + (repo.ahead > 0 ? " · ↑\(repo.ahead)" : "")
+            + (repo.behind > 0 ? " · ↓\(repo.behind)" : "")
     }
 }
 
@@ -540,7 +614,7 @@ private struct RepoRow: View {
             HStack(spacing: 8) {
                 Image(systemName: repo.isGitHub ? "chevron.left.forwardslash.chevron.right" : "shippingbox")
                     .font(.caption)
-                    .foregroundStyle(selected ? .white.opacity(0.9) : .secondary)
+                    .foregroundStyle(selected ? AnyShapeStyle(Color.white.opacity(0.9)) : AnyShapeStyle(Color.secondary))
                     .frame(width: 16)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(repo.displayName)
@@ -584,16 +658,18 @@ private struct RepoRow: View {
             StatePill(repo: repo)
                 .frame(width: stateWidth, alignment: .trailing)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .contentShape(.rect(cornerRadius: 12))
+        .contentShape(.rect(cornerRadius: 14))
         .background(
-            selected ? AnyShapeStyle(.white.opacity(0.10)) : AnyShapeStyle(hovered ? .white.opacity(0.05) : .clear),
-            in: .rect(cornerRadius: 12)
+            selected
+                ? AnyShapeStyle(.white.opacity(0.13))
+                : AnyShapeStyle(hovered ? .white.opacity(0.06) : .clear),
+            in: .rect(cornerRadius: 14)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(selected ? .white.opacity(0.22) : .clear, lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(selected ? .white.opacity(0.20) : .clear, lineWidth: 0.8)
         )
     }
 }

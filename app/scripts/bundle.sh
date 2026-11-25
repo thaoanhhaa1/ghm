@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 CONFIG="${1:-release}"
 APP="build/ghm.app"
 BIN_DIR="$(swift build -c "$CONFIG" --product GhmApp --show-bin-path)"
-VERSION="${GHM_VERSION:-0.7.1}"
+VERSION="${GHM_VERSION:-0.8.0}"
 ROOT="$(cd .. && pwd)"
 
 swift build -c "$CONFIG" --product GhmApp
