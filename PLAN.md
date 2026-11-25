@@ -475,3 +475,47 @@ Chi tiết triển khai:
 - `prCmd` gọi `r.GhPath()` (gh thật, không qua shim) + `GH_TOKEN` của account; `cmd.Dir` = repo.
 - Test mới: `TestLogOverlayRenders`, `TestLastURL`, `TestPRCmdRequiresRemote`, `TestPRCmdPushesAndCreatesPR` (repo + bare remote + stub `gh`, không cần mạng), `TestStickyStatusSurvivesReload`.
 - Verify thật trong PTY: mở log, đóng log, `c` trên repo read-only → hiện `PR ...: push: ... ERROR: Write access to repository not granted` đúng account.
+
+## 14. Thêm account bằng UI — v0.5.0 (2026-11-25)
+
+Trước đây thêm account phải chạy 5–6 lệnh tay. Giờ có 2 đường vào, dùng chung một hàm `AddAccount`:
+
+### TUI: phím `a`
+
+```
+add github account
+  b   login with browser   (gh auth login, recommended)
+  t   paste a token        (scopes: repo, read:org, admin:public_key)
+  esc cancel
+```
+
+- `b`: TUI tạm nhường terminal (`tea.ExecProcess`) cho `gh auth login -h github.com -p https -w`; khi quay lại, ghm đọc keyring, diff với `accounts.yaml` để tìm login mới rồi cấu hình.
+- `t`: nhập token (mask `•`, không echo, không ghi đĩa), pipe vào `gh auth login --with-token --hostname github.com`, rồi cấu hình.
+- Màn kết quả liệt kê từng bước (`account:`, `key:`, `ssh:`, `git:`, `dir:`, `next:`) + `warn:` nếu token thiếu `admin:public_key`.
+- Account mới tự thành tab hiện tại; `esc` đóng, `r` rescan.
+
+### CLI: `ghm add <login>`
+
+Dùng khi login đã có trong `gh` (script/CI): chạy đúng flow trên, in cùng định dạng dòng.
+
+### Các bước `AddAccount` thực hiện
+
+1. `gh api user` lấy name/email (fallback `<id>+<login>@users.noreply.github.com`).
+2. Append vào `accounts.yaml`, `applyDefaults`, `Save`.
+3. `EnsureSSHConfig` (Host `github-<login>`), `ResetCredentialHelper` (bỏ helper https nếu còn).
+4. `EnsureKey` (`~/.ssh/id_ed25519_<login>`), `KeyOnAccount` → `AddKeyToAccount` nếu chưa có.
+5. `EnsureAccountGitConfig` (`~/.config/ghm/git/<login>.gitconfig`) + `EnsureIncludeIf` (`~/work/<login>/`, tạo luôn thư mục).
+6. In `next: ghm doctor`.
+
+### Test
+
+- `TestNewLogins` (diff keyring, case-insensitive), `TestAddAccountRejectsDuplicate`.
+- `TestAddWizardMenuAndToken` (mở `a`, chọn `t`, token mask, esc đóng), `TestAddBrowserStartsLogin` (trả `ExecProcess`, state busy), `TestAddDoneSwitchesToNewAccount` (tab mới + status + màn kết quả).
+- PTY thật: `a` → menu → `t` → gõ `ghp_secret` → chỉ thấy `••••`, esc về bảng, `q` thoát 0.
+- CLI: `ghm add` (exit 2), `ghm add anhthaodev` → "already configured" (exit 1), `ghm add octocat` → "not logged in" (exit 1); `ghm doctor` vẫn 23/23.
+
+### Giới hạn
+
+- `b` cần browser + quyền tương tác; trong SSH/tmux không có browser thì dùng `t`.
+- Token dán vào cần scope `admin:public_key` để tự đăng ký key; thiếu thì account vẫn được thêm, key phải thêm tay (UI in lệnh gợi ý).
+- Chưa hỗ trợ GitHub Enterprise host khác `github.com`.

@@ -45,6 +45,8 @@ type tuiModel struct {
 	logTitle string
 	logLines []string
 	logTop   int
+	// add-account wizard
+	add *addState
 }
 
 var (
@@ -165,9 +167,51 @@ func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.loadCmd()
 
+	case loginDoneMsg:
+		if m.add == nil {
+			break
+		}
+		if msg.err != nil {
+			m.add.step = "result"
+			m.add.failed = true
+			m.add.lines = append(m.add.lines, "error: "+firstLine(msg.err.Error()))
+			break
+		}
+		m.add.step = "busy"
+		m.add.lines = append(m.add.lines, "login finished, configuring key and git config…")
+		return m, addDiscoverCmd(m.r)
+
+	case addDoneMsg:
+		if m.add == nil {
+			break
+		}
+		m.add.step = "result"
+		m.add.failed = msg.err != nil
+		m.add.lines = msg.lines
+		if msg.err != nil {
+			m.add.lines = append(m.add.lines, "error: "+firstLine(msg.err.Error()))
+			break
+		}
+		m.accounts = m.r.Cfg.Accounts
+		for i, a := range m.accounts {
+			for _, l := range msg.logins {
+				if strings.EqualFold(a.Login, l) {
+					m.acct = i
+				}
+			}
+		}
+		m.cursor = 0
+		m.sticky = true
+		m.status = "account added: " + strings.Join(msg.logins, ", ")
+		m.applyFilter()
+		return m, m.loadCmd()
+
 	case tea.KeyMsg:
 		if m.filterOn {
 			return m.updateFilter(msg)
+		}
+		if m.add != nil {
+			return m.updateAdd(msg)
 		}
 		if m.overlay == "log" {
 			return m.updateLog(msg)
@@ -261,6 +305,8 @@ func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if rp, ok := m.selected(); ok {
 				return m, logCmd(rp)
 			}
+		case "a":
+			m.openAdd()
 		}
 	}
 	return m, nil
@@ -447,6 +493,11 @@ func (m *tuiModel) View() string {
 		return b.String()
 	}
 
+	if m.add != nil {
+		b.WriteString(m.viewAdd())
+		return b.String()
+	}
+
 	if m.overlay == "log" {
 		b.WriteString(styleHeader.Render("log  "+m.logTitle) + "\n")
 		height := m.listHeight() - 1
@@ -502,7 +553,7 @@ func (m *tuiModel) View() string {
 	if len(m.visible) == 0 {
 		b.WriteString(styleDim.Render("  no repositories for this account") + "\n")
 	}
-	m.writeFooter(&b, "j/k move  f fetch  p pull  P push  c PR  l log  o open  / filter  tab account  ? help  q quit")
+	m.writeFooter(&b, "j/k move  f fetch  p pull  P push  c PR  l log  a add  o open  / filter  tab account  ? help  q quit")
 	return b.String()
 }
 
@@ -546,6 +597,7 @@ func (m *tuiModel) helpView() string {
 		"P              git push",
 		"c              push branch and create a PR (gh pr create)",
 		"l              commit log of the selected repo",
+		"a              add a github account (browser or token)",
 		"o              open repo on github.com",
 		"r              rescan repositories",
 		"?              close help",

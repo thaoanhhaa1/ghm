@@ -312,6 +312,112 @@ func TestPRCmdPushesAndCreatesPR(t *testing.T) {
 	}
 }
 
+func TestNewLogins(t *testing.T) {
+	got := newLogins([]string{"Alpha"}, []string{"ALPHA", "beta", " BETA ", ""})
+	if len(got) != 1 || got[0] != "beta" {
+		t.Errorf("newLogins = %v, want [beta]", got)
+	}
+	if extra := newLogins(nil, []string{"one", "one"}); len(extra) != 1 {
+		t.Errorf("newLogins duplicates = %v", extra)
+	}
+}
+
+func TestAddAccountRejectsDuplicate(t *testing.T) {
+	cfg := &Config{Accounts: []Account{{Login: "alpha", Dir: "/tmp/alpha"}}}
+	_, err := AddAccount(NewRunner(cfg), "alpha")
+	if err == nil || !strings.Contains(err.Error(), "already configured") {
+		t.Errorf("err = %v, want already configured", err)
+	}
+}
+
+func TestAddWizardMenuAndToken(t *testing.T) {
+	cfg := &Config{Accounts: []Account{{Login: "alpha", Dir: "/tmp/alpha"}}}
+	m := &tuiModel{r: NewRunner(cfg), accounts: cfg.Accounts, width: 110, height: 30}
+	m.applyFilter()
+
+	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m = model.(*tuiModel)
+	if m.add == nil || m.add.step != "menu" {
+		t.Fatalf("add = %+v, want menu", m.add)
+	}
+	view := m.View()
+	for _, want := range []string{"add github account", "login with browser", "paste a token", "esc cancel"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("menu missing %q\n%s", want, view)
+		}
+	}
+
+	model, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m = model.(*tuiModel)
+	if m.add.step != "token" {
+		t.Fatalf("step = %q, want token", m.add.step)
+	}
+	for _, r := range "ghp_secret" {
+		model, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = model.(*tuiModel)
+	}
+	if m.add.input != "ghp_secret" {
+		t.Errorf("input = %q", m.add.input)
+	}
+	tokenView := m.View()
+	if strings.Contains(tokenView, "ghp_secret") {
+		t.Error("token must not be echoed")
+	}
+	if !strings.Contains(tokenView, "••••••••••") {
+		t.Errorf("token input is not masked\n%s", tokenView)
+	}
+
+	model, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = model.(*tuiModel)
+	if m.add != nil {
+		t.Error("esc should close the wizard")
+	}
+}
+
+func TestAddBrowserStartsLogin(t *testing.T) {
+	cfg := &Config{Accounts: []Account{{Login: "alpha", Dir: "/tmp/alpha"}}}
+	m := &tuiModel{r: NewRunner(cfg), accounts: cfg.Accounts, width: 100, height: 30, add: &addState{step: "menu"}}
+	model, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	got := model.(*tuiModel)
+	if cmd == nil {
+		t.Fatal("browser login should return an ExecProcess command")
+	}
+	if got.add.step != "busy" {
+		t.Errorf("step = %q, want busy", got.add.step)
+	}
+}
+
+func TestAddDoneSwitchesToNewAccount(t *testing.T) {
+	cfg := &Config{Accounts: []Account{{Login: "alpha", Dir: "/tmp/alpha"}}}
+	m := &tuiModel{
+		r:        NewRunner(cfg),
+		accounts: cfg.Accounts,
+		width:    110,
+		height:   30,
+		add:      &addState{step: "busy"},
+	}
+	m.applyFilter()
+	cfg.Accounts = append(cfg.Accounts, Account{Login: "beta", Dir: "/tmp/beta"})
+
+	model, _ := m.Update(addDoneMsg{logins: []string{"beta"}, lines: []string{"account: beta", "key: registered on github.com"}})
+	got := model.(*tuiModel)
+	if len(got.accounts) != 2 || got.acct != 1 {
+		t.Fatalf("accounts = %d acct = %d", len(got.accounts), got.acct)
+	}
+	if got.add.step != "result" || got.add.failed {
+		t.Errorf("add = %+v, want successful result", got.add)
+	}
+	if !strings.Contains(got.status, "beta") {
+		t.Errorf("status = %q", got.status)
+	}
+	view := got.View()
+	for _, want := range []string{"account: beta", "account ready", "esc close"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("result missing %q\n%s", want, view)
+		}
+	}
+}
+
 func TestFindRepoRoot(t *testing.T) {
 	root := t.TempDir()
 	repo := filepath.Join(root, "repo")

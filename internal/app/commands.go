@@ -16,6 +16,7 @@ const usageText = `ghm - one machine, many GitHub accounts, zero re-login
 
 Usage:
   ghm init                      bootstrap keys, ssh config, git config from gh accounts
+  ghm add <login>               configure an account already logged in to gh (keys, ssh, git)
   ghm list [--check] [--json]   accounts overview
   ghm status                    accounts + repositories health (exit 1 on problems)
   ghm doctor [--fix]            run health checks, optionally repair
@@ -68,6 +69,8 @@ func Main(argv []string) int {
 	}
 	r := NewRunner(cfg)
 	switch cmd {
+	case "add":
+		return cmdAdd(r, args)
 	case "list":
 		return cmdList(r, args)
 	case "status":

@@ -41,6 +41,27 @@ ghm doctor
 
 `ghm init` is idempotent and never rewrites files it does not own.
 
+## Add an account
+
+Inside the dashboard press `a`:
+
+```
+add github account
+  b   login with browser   (gh auth login, recommended)
+  t   paste a token        (scopes: repo, read:org, admin:public_key)
+```
+
+- `b` suspends the dashboard, runs `gh auth login -h github.com -p https -w`, then ghm detects the new keyring account and configures it: SSH key, key registration, `~/.ssh/config` host alias, per-account gitconfig, `includeIf`, folder.
+- `t` accepts a PAT, pipes it to `gh auth login --with-token` (never stored by ghm), then runs the same setup.
+
+The result screen lists every step plus warnings (for example a token without `admin:public_key`). The new account gets its own tab; run `ghm doctor` afterwards.
+
+CLI equivalent for an account that is already logged in to `gh`:
+
+```bash
+ghm add <login>
+```
+
 ## Daily use
 
 ```bash
@@ -64,6 +85,7 @@ ghm adopt --all --dry-run        # preview a bulk migration
 | Command | Purpose |
 |---|---|
 | `ghm init` | Bootstrap from the accounts already in `gh` (keys, ssh config, git config, folders) |
+| `ghm add <login>` | Configure one more account that is already logged in to `gh` |
 | `ghm list [--check] [--json]` | Accounts table; `--check` also tests SSH |
 | `ghm status` | Accounts + repository health, exit 1 on problems |
 | `ghm doctor [--fix]` | 23 checks, `--fix` repairs keys, config, https remotes, identities, shim |
@@ -87,14 +109,14 @@ ghm tui
 ```
 
 ```
-ghm 0.4.0                                             gh active: anhthaodev
+ghm 0.5.0                                             gh active: anhthaodev
 [1 anhthaodev 14] [2 thaoanhhaa1 16] [3 namphuongso 5]
 ────────────────────────────────────────────────────────────────────────────
 REPO                        BRANCH                AHEAD  BEHIND  STATE
 anhthaodev/misa             dev                   0      2       3 dirty
 anhthaodev/it-tools-be      master                1      0       clean
 ────────────────────────────────────────────────────────────────────────────
-j/k move  f fetch  p pull  P push  c PR  l log  o open  / filter  tab account  ? help  q quit
+j/k move  f fetch  p pull  P push  c PR  l log  a add  o open  / filter  tab account  ? help  q quit
 ```
 
 `p` runs `git pull --ff-only`, `P` runs `git push`, `f` runs `git fetch --prune`, `o` opens the repo on github.com, `/` filters by name/branch/path, `?` opens help.
@@ -122,7 +144,7 @@ ghm completion fish > ~/.config/fish/completions/ghm.fish
 - Tagging `v*` runs goreleaser: darwin/linux (amd64/arm64) tarballs, checksums, Homebrew formula push to `thaoanhhaa1/homebrew-tap` (needs `HOMEBREW_TAP_GITHUB_TOKEN`).
 
 ```bash
-git tag v0.4.0 && git push --tags
+git tag v0.5.0 && git push --tags
 ```
 
 

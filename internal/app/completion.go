@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-const ghmCommands = "init list status doctor repos sync adopt clone exec use token tui install-shim uninstall-shim completion version"
+const ghmCommands = "init add list status doctor repos sync adopt clone exec use token tui install-shim uninstall-shim completion version"
 
 // cmdCompletion prints a shell completion script.
 func cmdCompletion(args []string) int {
@@ -33,6 +33,7 @@ _ghm() {
   local -a commands
   commands=(
     'init:bootstrap keys, ssh config and git config from gh accounts'
+    'add:configure an account already logged in to gh'
     'list:accounts overview'
     'status:accounts and repositories health'
     'doctor:run health checks (--fix to repair)'
@@ -91,6 +92,7 @@ complete -F _ghm ghm
 const fishCompletion = `# install: ghm completion fish > ~/.config/fish/completions/ghm.fish
 complete -c ghm -f
 complete -c ghm -n "__fish_use_subcommand" -a init -d "bootstrap keys and config"
+complete -c ghm -n "__fish_use_subcommand" -a add -d "configure an existing gh login"
 complete -c ghm -n "__fish_use_subcommand" -a list -d "accounts overview"
 complete -c ghm -n "__fish_use_subcommand" -a status -d "accounts and repos health"
 complete -c ghm -n "__fish_use_subcommand" -a doctor -d "health checks"
