@@ -201,8 +201,11 @@ runs on `v*`:
   `ghm-x.y.z.zip` + `appcast.xml` into the same release. The `releases/latest`
   feed therefore never points at a half-published version.
 
-Secrets: `SPARKLE_PRIVATE_KEY` and `HOMEBREW_TAP_GITHUB_TOKEN`. To refresh the
-Sparkle key on a new machine:
+Secrets: `SPARKLE_PRIVATE_KEY` and `HOMEBREW_TAP_GITHUB_TOKEN`. The Homebrew push
+is currently skipped in `.goreleaser.yaml` (`skip_upload: true`): the fine-grained
+PAT is not allowed to write `Formula/ghm.rb` in the tap (403). Add the tap repo
+with **Contents: Read and write** to that token, then flip the flag to `false`.
+To refresh the Sparkle key on a new machine:
 
 ```bash
 app/.build/artifacts/sparkle/Sparkle/bin/generate_keys -x key.txt

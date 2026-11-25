@@ -37,6 +37,11 @@ changelog:
 
 brews:
   - name: ghm
+    # The fine-grained PAT in HOMEBREW_TAP_GITHUB_TOKEN currently gets
+    # "403 Resource not accessible by personal access token" from the tap repo
+    # (missing Contents: write there). Keep generating the formula in dist/ but
+    # stop the pipeline on it; set skip_upload to false once the token is fixed.
+    skip_upload: true
     repository:
       owner: thaoanhhaa1
       name: homebrew-tap

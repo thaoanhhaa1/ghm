@@ -679,3 +679,20 @@ Trước đây `release.yml` (goreleaser) và quy trình tay cùng dùng một t
 - `make check` giữ nguyên; `ci.yml` parse thêm `release.yml`.
 - Dry-run `45548088282`: cli 58s, app 1m51s, artifact `cli` (4 tar.gz + checksums) và `app-0.0.0` (zip + appcast). Giải nén zip: plist 0.0.0, codesign pass, `ghm 0.0.0`; `sign_update --verify` chấp nhận chữ ký appcast, chữ ký sai bị từ chối.
 - Release thật `v0.8.1`: xem mục 21.
+
+## 21. Release v0.8.1 lộ lỗi quyền PAT, sửa và phát hành v0.8.2 (2026-11-25)
+
+Tag `v0.8.1` chạy pipeline thật: job `cli` build + publish tarball thành công (4 tarball + checksums, `ghm version` trong tarball = 0.8.1 nhờ ldflags), nhưng bước brew lỗi:
+
+```
+homebrew formula: could not update "Formula/ghm.rb": PUT …/homebrew-tap/contents/Formula/ghm.rb: 403 Resource not accessible by personal access token
+```
+
+Vì `needs: cli`, job `app` bị skip → release v0.8.1 chỉ có tarball, thiếu `appcast.xml`, nên `releases/latest/download/appcast.xml` tạm thời 404. Xử lý:
+
+- Upload ngay `ghm-0.8.1.zip` + `appcast.xml` build local (có ký bằng key file) lên release v0.8.1 → feed trả lại 0.8.1 (926B, zip 9.487.665B).
+- `.goreleaser.yaml`: `brews[].skip_upload: true` để pipeline không chết vì quyền PAT; formula vẫn sinh trong `dist/`. Khi PAT được cấp Contents: write cho `homebrew-tap` thì đổi lại `false`.
+- README ghi rõ cách sửa token.
+- Tăng 0.8.2 và tag lại để chứng minh pipeline chạy trọn: goreleaser publish + job app upload zip/appcast tự động.
+
+Bài học: job `app` phải `needs: cli`, nhưng mọi bước publish của `cli` phải là thứ không thể fail vì quyền phụ (brew) — nếu không sẽ chặn asset quan trọng nhất. Có thể tách brew thành job `continue-on-error` sau này.

@@ -34,7 +34,7 @@ type Config struct {
 // appVersion can be overridden at build time:
 //
 //	go build -ldflags "-X github.com/thaoanhhaa1/ghm/internal/app.appVersion=1.2.3"
-var appVersion = "0.8.1"
+var appVersion = "0.8.2"
 
 const (
 	defaultRoot  = "~/work"
