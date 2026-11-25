@@ -187,12 +187,27 @@ ghm completion fish > ~/.config/fish/completions/ghm.fish
 
 ## Release
 
-- `ci.yml` runs gofmt, `go vet`, `go test`, cross-platform build on Ubuntu + macOS.
-- Tagging `v*` runs goreleaser: darwin/linux (amd64/arm64) tarballs, checksums, Homebrew formula push to `thaoanhhaa1/homebrew-tap` (needs `HOMEBREW_TAP_GITHUB_TOKEN`).
+CI is **disabled** on purpose (`gh workflow disable ci.yml release.yml`): the GitHub
+account is locked for a billing issue, so every push produced a red X in 3 seconds
+without starting a single job. Run the same checks locally before pushing:
 
 ```bash
-git tag v0.7.0 && git push --tags
+make check        # gofmt, go vet, go test, go build
+make app          # rebuild app/build/ghm.app after Go changes
 ```
+
+The app release is manual, because goreleaser cannot produce the `.app` (icon,
+Sparkle framework, signature, appcast):
+
+```bash
+GHM_VERSION=0.8.0 GHM_MAKE_RELEASE=1 make app
+gh release create v0.8.0 dist/ghm-0.8.0.zip dist/appcast.xml \
+  --title "ghm 0.8.0" --notes-file /tmp/notes.md
+```
+
+`.github/workflows/release.yml` (goreleaser: darwin/linux tarballs, checksums,
+Homebrew formula) is kept for the day billing is fixed; enable it with
+`gh workflow enable release.yml`.
 
 
 ## Files written
@@ -224,7 +239,7 @@ Backups are written as `<file>.bak-<timestamp>` before any edit.
 ## Development
 
 ```bash
-go test ./...     # unit tests: remote parsing, includeIf matching, config rendering
-go vet ./...
-go build -o ~/.local/bin/ghm ./cmd/ghm
+make check        # gofmt check + go vet + go test + build
+make test         # unit tests: remote parsing, includeIf matching, config rendering
+make build        # install to ~/.local/bin/ghm
 ```

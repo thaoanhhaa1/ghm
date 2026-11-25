@@ -1,6 +1,6 @@
 BIN ?= $(HOME)/.local/bin/ghm
 
-.PHONY: build app icon test vet install doctor fmt clean
+.PHONY: build app icon test vet check install doctor fmt clean
 
 build:
 	go build -o $(BIN) ./cmd/ghm
@@ -19,6 +19,13 @@ test:
 
 vet:
 	go vet ./...
+
+# Everything the (disabled) CI job used to run, but on this machine.
+check:
+	@test -z "$$(gofmt -l .)" || { gofmt -l .; echo "gofmt: run 'make fmt'"; exit 1; }
+	go vet ./...
+	go test ./...
+	go build ./...
 
 fmt:
 	gofmt -l -w .
