@@ -39,6 +39,7 @@ brews:
     repository:
       owner: thaoanhhaa1
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: https://github.com/thaoanhhaa1/ghm
     description: "Multi-account GitHub manager: one folder per account, no re-login"
