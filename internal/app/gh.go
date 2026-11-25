@@ -21,6 +21,8 @@ type Runner struct {
 	tokens   map[string]string
 	apiCache map[string]apiRepo
 	client   *http.Client
+	apiURL   string
+	webURL   string
 }
 
 // NewRunner builds a Runner.
@@ -30,7 +32,18 @@ func NewRunner(cfg *Config) *Runner {
 		tokens:   map[string]string{},
 		apiCache: map[string]apiRepo{},
 		client:   &http.Client{Timeout: 25 * time.Second},
+		apiURL:   baseFromEnv("GHM_GITHUB_API", githubAPIURL),
+		webURL:   baseFromEnv("GHM_GITHUB_WEB", githubWebURL),
 	}
+}
+
+// baseFromEnv lets tests and GitHub Enterprise users redirect the REST and
+// OAuth endpoints without recompiling.
+func baseFromEnv(key, fallback string) string {
+	if v := strings.TrimRight(os.Getenv(key), "/"); v != "" {
+		return v
+	}
+	return fallback
 }
 
 // GhPath returns the configured gh binary.
@@ -130,7 +143,7 @@ func (r *Runner) api(token, method, path string, body []byte) ([]byte, int, erro
 	if body != nil {
 		rd = bytes.NewReader(body)
 	}
-	req, err := http.NewRequest(method, githubAPIURL+path, rd)
+	req, err := http.NewRequest(method, r.apiBase()+path, rd)
 	if err != nil {
 		return nil, 0, err
 	}

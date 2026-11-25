@@ -1,3 +1,5 @@
 /ghm
 *.test
 .DS_Store
+app/.build/
+app/build/

@@ -28,6 +28,7 @@ Usage:
   ghm use <login>               print exports for the current shell
   ghm token <login>
   ghm tui                       dashboard: accounts, repos, fetch/pull/push
+  ghm api <action>              JSON API for the macOS app (state, doctor, add, git)
   ghm install-shim | uninstall-shim
   ghm completion <zsh|bash|fish>
   ghm version
@@ -93,6 +94,8 @@ func Main(argv []string) int {
 		return cmdToken(r, args)
 	case "tui":
 		return cmdTUI(r, args)
+	case "api":
+		return cmdAPI(r, args)
 	}
 	fmt.Fprintf(os.Stderr, "ghm: unknown command %q\n\n%s", cmd, usageText)
 	return 2

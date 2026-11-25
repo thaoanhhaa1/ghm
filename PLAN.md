@@ -519,3 +519,55 @@ Dùng khi login đã có trong `gh` (script/CI): chạy đúng flow trên, in c�
 - `b` cần browser + quyền tương tác; trong SSH/tmux không có browser thì dùng `t`.
 - Token dán vào cần scope `admin:public_key` để tự đăng ký key; thiếu thì account vẫn được thêm, key phải thêm tay (UI in lệnh gợi ý).
 - Chưa hỗ trợ GitHub Enterprise host khác `github.com`.
+
+## 15. App macOS native (SwiftUI) — v0.6.0 (2026-11-25)
+
+Yêu cầu: UI thật (cửa sổ, chuột, form), không phải TUI; thêm account bằng cả device flow lẫn PAT.
+
+### Kiến trúc
+
+- `app/` là Swift package (`GhmApp`, macOS 13+), không cần Xcode project.
+- App **không** đọc/ghi key, token hay git config. Mọi thứ đi qua `ghm api <action>` (JSON) trong `internal/app/api.go`, nên logic vẫn nằm ở Go và test được.
+- `app/scripts/bundle.sh` (gọi bằng `make app`): build release, copy `ghm` vào `Contents/MacOS/ghm`, viết `Info.plist`, ký ad-hoc. Bundle chứa backend nên mở từ Finder vẫn chạy dù GUI không có `~/.local/bin` trong `PATH`.
+- `GhmCLI` tìm binary theo thứ tự: trong bundle → `~/.local/bin/ghm` → `PATH` → Homebrew. Khi chạy con, nó xoá `GH_TOKEN`/`GHM_SHIM` để token thừa không đè account theo folder.
+
+### API mới
+
+| Action | Việc |
+|---|---|
+| `state` | accounts + repos + active login + root (một lần gọi cho toàn bộ dashboard) |
+| `doctor [--fix]` | danh sách check kèm level/detail, có sửa |
+| `add <login>` | `AddAccount` cho login đã có trong keyring (dùng chung với CLI/TUI) |
+| `login-token` | đọc token từ stdin → `gh auth login --with-token` → diff keyring → `AddAccount` |
+| `device-start [--client-id]` | gọi `POST /login/device/code` |
+| `device-poll --device-code` | poll `POST /login/oauth/access_token`, trả `pending/slow_down/success/error` |
+| `git --path --action fetch\|pull\|push` | chạy git trong repo đó |
+
+Mọi action in **một** object JSON và exit 0, để UI hiển thị được cả trường hợp một phần thất bại (warn, thiếu scope) thay vì đoán qua exit code.
+
+### UI
+
+- `NavigationSplitView`: sidebar (All repositories + từng account + Manage) và bảng repo (`Table`) với account/branch/ahead/behind/state, context menu fetch/pull/push, mở GitHub, Finder, copy path, `⌘R`.
+- `DoctorView`: chạy `ghm doctor`, hiện ok/warn/fail, nút *Fix issues*.
+- `AddAccountView`: segmented Browser/Token.
+  - Browser: `device-start` → hiện `user_code` (copy được), mở browser, poll mỗi `interval` giây; `slow_down` thì tăng 5s; hết hạn thì báo chạy lại.
+  - Token: `SecureField`, link tạo token với scope điền sẵn, submit qua stdin.
+  - Kết quả: danh sách dòng (`account:`, `key:`, `ssh:`, `git:`, `dir:`, `next:`) + warn màu cam + lỗi màu đỏ; *Add another* / *Done*.
+- Sau khi thêm: `model.refresh(silently:)`, account mới xuất hiện ở sidebar.
+- `NSDocumentsFolderUsageDescription` / `NSDesktopFolderUsageDescription` để prompt TCC có lý do rõ ràng (ghm mặc định scan `~/work`, `~/Documents`, `~/Desktop`).
+
+### Test
+
+- Go: `TestAPIDeviceFlowAddsAccount` dựng `httptest` giả GitHub (device/code, access_token pending→success, `/user`, `/user/keys` GET/POST) + stub `gh`, `HOME` tạm; kiểm tra poll pending→success, account `beta` được lưu, key sinh ra, `Host github-beta`, gitconfig, folder, và add lần 2 bị từ chối. `TestAPIDeviceExpired`, `TestAPIGitActionValidatesInput`.
+- `GHM_GITHUB_API` / `GHM_GITHUB_WEB` cho phép trỏ REST/OAuth sang server test (hoặc GitHub Enterprise), mặc định vẫn là github.com.
+- E2E thật trong app (bundle `app/build/ghm.app`, `HOME` tạm, server giả + stub `gh`):
+  - device flow: mở *Add account* → *Start browser login* → hiện `E2E1-2345` + *Waiting for approval* → result *Account ready* với đủ dòng; `accounts.yaml`, `~/.ssh/config`, key, gitconfig đều có `beta`.
+  - token flow: chọn *Token*, gõ token (AX trả `••••…`, không lộ), submit → *Account ready*, thêm `gamma`.
+  - App chạy với dữ liệu thật: sidebar 3 account (14/16/5 repo), bảng 88 repo, `gh active: anhthaodev`, doctor 23 ok.
+
+### Giới hạn / ghi chú
+
+- Device flow mặc định dùng client id public của GitHub CLI (`Iv1.b507a08c87ecfe98`) để chạy ngay. Khi phát hành cho người khác nên tạo OAuth App riêng (bật Device Flow) và nhập client id; PAT không cần OAuth app.
+- App ký ad-hoc, chưa notarize: máy khác tải về sẽ bị Gatekeeper hỏi. Muốn phát hành cần Developer ID + notarization.
+- Lần đầu mở, macOS hỏi quyền Documents/Desktop vì scan repo; từ chối thì chỉ thấy repo trong `~/work`.
+- Chưa có icon `.icns`, chưa có auto-update, chưa hỗ trợ GitHub Enterprise UI (backend đã có env URL).

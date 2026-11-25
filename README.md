@@ -97,6 +97,7 @@ ghm adopt --all --dry-run        # preview a bulk migration
 | `eval "$(ghm use <login>)"` | Same, for the current shell |
 | `ghm token <login>` | Print the keyring token |
 | `ghm tui` | Dashboard: accounts as tabs, repos with ahead/behind, fetch/pull/push, PR, log |
+| `ghm api <action>` | JSON API for the desktop app (`state`, `doctor`, `add`, `login-token`, `device-start`, `device-poll`, `git`) |
 | `ghm completion zsh\|bash\|fish` | Shell completion script |
 | `ghm install-shim` / `uninstall-shim` | Manage the `gh` wrapper and PATH entry |
 
@@ -109,7 +110,7 @@ ghm tui
 ```
 
 ```
-ghm 0.5.0                                             gh active: anhthaodev
+ghm 0.6.0                                             gh active: anhthaodev
 [1 anhthaodev 14] [2 thaoanhhaa1 16] [3 namphuongso 5]
 ────────────────────────────────────────────────────────────────────────────
 REPO                        BRANCH                AHEAD  BEHIND  STATE
@@ -124,6 +125,31 @@ j/k move  f fetch  p pull  P push  c PR  l log  a add  o open  / filter  tab acc
 `c` creates a pull request: it pushes the current branch with the repo's account (`git push -u origin HEAD`), then runs `gh pr create` with that account's token. The PR URL is shown in the status line; failures (read-only repo, detached HEAD, `main` into `main`) stay in the dashboard.
 
 `l` opens the last 60 commits of the selected repo (`j/k` scroll, `g/G` top/bottom, `esc` close).
+
+## macOS app
+
+A native SwiftUI window over the same engine (`ghm api …`), for people who would rather click than remember keys. Accounts, repositories, fetch/pull/push, health checks, and adding an account all work without a terminal.
+
+```bash
+make app                  # builds ~/.local/bin/ghm, bundles it, signs ad-hoc
+open app/build/ghm.app
+```
+
+Requirements: macOS 13+, Xcode command line tools (`swift`), and Go. `make app` copies the `ghm` binary inside the bundle, so Finder launches work even though `~/.local/bin` is not on the GUI `PATH`. Rebuild after changing the Go code.
+
+- **Sidebar** — all repositories or one account, with repo counts and missing key/token badges.
+- **Table** — repository, account, branch, ahead/behind, dirty state. Right-click for fetch/pull/push, open on GitHub, reveal in Finder, copy path. `⌘R` rescans.
+- **Health checks** — `ghm doctor`, plus a *Fix issues* button (`ghm doctor --fix`).
+- **Add account…** — two paths, both keeping credentials in the `gh` keyring:
+  - *Browser*: device flow. The app shows the code, opens `github.com/login/device`, polls until you approve. No terminal, no copy-pasting commands.
+  - *Token*: paste a PAT (masked field, piped to `gh auth login --with-token`, never stored by ghm). The *Create a token* link pre-fills `repo,read:org,admin:public_key`.
+  - After login, ghm detects the new keyring account and writes SSH key, key registration, `Host github-<login>`, per-account gitconfig, `includeIf`, and `~/work/<login>`. Results are listed step by step.
+
+The device flow defaults to the public GitHub CLI OAuth app client id so it works out of the box. For a distributed build, create your own OAuth App with **Device Flow** enabled and paste its client id under *OAuth client id*; the token flow needs no OAuth app at all.
+
+On first launch macOS asks for access to **Documents/Desktop** because ghm also scans those folders for repositories; allow it to see every checkout (or set `scan_roots` in `accounts.yaml`).
+
+`GHM_GITHUB_API` / `GHM_GITHUB_WEB` redirect the REST and OAuth endpoints (tests, GitHub Enterprise).
 
 ## Shell completion
 
@@ -144,7 +170,7 @@ ghm completion fish > ~/.config/fish/completions/ghm.fish
 - Tagging `v*` runs goreleaser: darwin/linux (amd64/arm64) tarballs, checksums, Homebrew formula push to `thaoanhhaa1/homebrew-tap` (needs `HOMEBREW_TAP_GITHUB_TOKEN`).
 
 ```bash
-git tag v0.5.0 && git push --tags
+git tag v0.6.0 && git push --tags
 ```
 
 

@@ -32,10 +32,11 @@ type Config struct {
 }
 
 const (
-	appVersion   = "0.5.0"
+	appVersion   = "0.6.0"
 	defaultRoot  = "~/work"
 	githubHost   = "github.com"
 	githubAPIURL = "https://api.github.com"
+	githubWebURL = "https://github.com"
 )
 
 // Home returns the user home directory.
