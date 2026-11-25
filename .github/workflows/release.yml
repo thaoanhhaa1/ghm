@@ -143,6 +143,7 @@ jobs:
           grep -q "releases/download/v$VERSION/ghm-$VERSION.zip" dist/appcast.xml
           sig=$(sed -n 's/.*edSignature="\([^"]*\)".*/\1/p' dist/appcast.xml)
           app/.build/artifacts/sparkle/Sparkle/bin/sign_update --verify \
+            --ed-key-file "$RUNNER_TEMP/sparkle.key" \
             "dist/ghm-$VERSION.zip" "$sig"
           len=$(sed -n 's/.*length="\([0-9]*\)".*/\1/p' dist/appcast.xml)
           test "$len" = "$(stat -f%z "dist/ghm-$VERSION.zip")"
