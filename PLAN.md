@@ -708,3 +708,5 @@ Bài học: job `app` phải `needs: cli`, nhưng mọi bước publish của `c
 - Auto-update thật: bản 0.8.1 trong `/tmp` → *"ghm 0.8.2 is now available"* → Install → bundle tự thành 0.8.2 và relaunch; app UI hiện `0.8.2`.
 - Bước `Verify bundle` được bổ sung kiểm tra `sign_update --verify` và `length` của enclosure khớp kích thước zip, để lần sau lỗi ký bị chặn ngay trong CI.
 - `skip_upload: true` cho brew vẫn giữ; khi PAT có Contents: write trên `homebrew-tap` thì đổi thành `false` để có thêm formula.
+- Dry-run sau đó (`45551300605`) xanh với bước verify mới. Lần đầu bước này fail vì `sign_update --verify` không có keychain trên runner → phải truyền thêm `--ed-key-file "$RUNNER_TEMP/sparkle.key"`; đã sửa và chạy lại.
+- Đặt `release.name_template: "ghm {{ .Version }}"` để release mới có tiêu đề thống nhất với các bản trước.
