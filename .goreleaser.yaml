@@ -1,0 +1,51 @@
+version: 2
+
+project_name: ghm
+
+builds:
+  - id: ghm
+    main: ./cmd/ghm
+    binary: ghm
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+brews:
+  - name: ghm
+    repository:
+      owner: thaoanhhaa1
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://github.com/thaoanhhaa1/ghm
+    description: "Multi-account GitHub manager: one folder per account, no re-login"
+    license: MIT
+    install: |
+      bin.install "ghm"
+    caveats: |
+      Finish setup once per machine:
+        ghm install-shim
+        ghm doctor

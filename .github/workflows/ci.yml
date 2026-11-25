@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go build -o /tmp/ghm ./cmd/ghm
+      - run: /tmp/ghm version
+      - run: /tmp/ghm completion zsh > /dev/null
+
+  lint-config:
+    name: yaml sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: parse goreleaser config
+        run: |
+          python3 -c "import yaml,sys; yaml.safe_load(open('.goreleaser.yaml'))"
+          python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/ci.yml'))"
