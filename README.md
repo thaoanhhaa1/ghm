@@ -187,29 +187,45 @@ ghm completion fish > ~/.config/fish/completions/ghm.fish
 
 ## Release
 
-`.github/workflows/ci.yml` runs on every push to `main` and on pull requests —
-gofmt, `go vet`, `go test`, build, `ghm version` and zsh completion — on both
-`ubuntu-latest` and `macos-latest`, plus a YAML parse check for the workflows and
-`.goreleaser.yaml`. The same checks run locally in one command:
+One tag publishes the CLI and the app together. `.github/workflows/release.yml`
+runs on `v*`:
+
+- **cli (goreleaser, Ubuntu)** — gofmt, `go vet`, `go test`, then darwin/linux ×
+  amd64/arm64 tarballs + `checksums.txt`, the GitHub release, and the formula in
+  `thaoanhhaa1/homebrew-tap`. The binary is stamped with the tag through
+  `-X github.com/thaoanhhaa1/ghm/internal/app.appVersion`.
+- **app (macOS)** — builds the Go backend into the bundle, runs
+  `app/scripts/bundle.sh` with `GHM_VERSION` from the tag, signs the appcast with
+  `SPARKLE_PRIVATE_KEY` (`generate_appcast --ed-key-file`), verifies the plist
+  version, `codesign --verify`, `ghm version` and the appcast, then uploads
+  `ghm-x.y.z.zip` + `appcast.xml` into the same release. The `releases/latest`
+  feed therefore never points at a half-published version.
+
+Secrets: `SPARKLE_PRIVATE_KEY` and `HOMEBREW_TAP_GITHUB_TOKEN`. To refresh the
+Sparkle key on a new machine:
 
 ```bash
-make check        # gofmt, go vet, go test, go build
-make app          # rebuild app/build/ghm.app after Go changes
+app/.build/artifacts/sparkle/Sparkle/bin/generate_keys -x key.txt
+gh secret set SPARKLE_PRIVATE_KEY < key.txt && rm key.txt
 ```
 
-The app release is manual, because goreleaser cannot produce the `.app` (icon,
-Sparkle framework, signature, appcast):
+Dry run (builds both jobs, uploads artifacts to the run, publishes nothing):
 
 ```bash
-GHM_VERSION=0.8.0 GHM_MAKE_RELEASE=1 make app
-gh release create v0.8.0 dist/ghm-0.8.0.zip dist/appcast.xml \
-  --title "ghm 0.8.0" --notes-file /tmp/notes.md
+gh workflow run release.yml -f version=0.0.0
+gh run watch
 ```
 
-`.github/workflows/release.yml` (goreleaser: darwin/linux tarballs, checksums,
-Homebrew formula) is currently **disabled**, because the tag is also used by the
-manual app release above; enable it with `gh workflow enable release.yml` once the
-two flows are merged.
+Local equivalents:
+
+```bash
+make check                 # gofmt, go vet, go test, go build
+VERSION=0.8.1 make app     # stamps the plist and the bundled CLI
+```
+
+`.github/workflows/ci.yml` runs the same checks on every push to `main` and on
+pull requests, on Ubuntu and macOS. The app is ad-hoc signed, so Downloads on
+other Macs still need *right-click → Open* until notarization with a Developer ID.
 
 
 ## Files written

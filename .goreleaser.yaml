@@ -16,6 +16,7 @@ builds:
       - arm64
     ldflags:
       - -s -w
+      - -X github.com/thaoanhhaa1/ghm/internal/app.appVersion={{ .Version }}
 
 archives:
   - id: default

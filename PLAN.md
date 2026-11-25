@@ -662,3 +662,20 @@ Lỗi "account is locked due to a billing issue" đã được xử lý; chạy 
 - `gh workflow enable ci.yml` (release vẫn disabled vì tag dùng cho release app tay).
 - Nâng action lên major chạy Node 24 để hết cảnh báo deprecated: `actions/checkout@v7`, `actions/setup-go@v7`, `goreleaser/goreleaser-action@v7`. Push `0c5fc67` → run `45545669873` xanh cả 3 job, không còn annotation Node 20.
 - `make check` giữ nguyên làm bước kiểm tra local trước khi push; README mục Release cập nhật lại (CI đang bật, vì sao release.yml vẫn tắt).
+
+## 20. Một pipeline release cho CLI + app — v0.8.1 (2026-11-25)
+
+Trước đây `release.yml` (goreleaser) và quy trình tay cùng dùng một tag nên chỉ có một publisher. Nay gộp:
+
+### Workflow `release.yml`
+- Trigger: push tag `v*`, và `workflow_dispatch` với input `version` để dry-run.
+- Job `cli` (ubuntu): gofmt/vet/test → goreleaser. Tag: `release --clean` (tarball 4 nền tảng + checksums + GitHub release + formula brew). Dispatch: `release --clean --snapshot` (chỉ artifact của run).
+- Job `app` (macos-latest = macOS 26 arm64, Xcode 26.6): build backend với `-X ...appVersion=<tag>`, `GHM_VERSION=<tag> GHM_MAKE_RELEASE=1 bundle.sh`, rồi verify: `CFBundleShortVersionString` == tag, `codesign --verify --deep --strict`, `ghm version` == tag, appcast có `edSignature` và URL `releases/download/v<tag>/ghm-<tag>.zip`.
+- Job `app` upload asset vào **cùng** release mà goreleaser tạo (`needs: cli` + `gh release upload --clobber`), nên `releases/latest` không bao giờ trỏ vào bản thiếu zip/appcast.
+- Secret mới `SPARKLE_PRIVATE_KEY`: `generate_keys -x` rồi `gh secret set`; CI ký appcast bằng `generate_appcast --ed-key-file` (không có keychain).
+
+### Kèm theo
+- `appVersion` từ `const` → `var` để ldflags ghi đè; `make app VERSION=` truyền vào cả plist và CLI; `.goreleaser.yaml` cũng stamp `{{ .Version }}`.
+- `make check` giữ nguyên; `ci.yml` parse thêm `release.yml`.
+- Dry-run `45548088282`: cli 58s, app 1m51s, artifact `cli` (4 tar.gz + checksums) và `app-0.0.0` (zip + appcast). Giải nén zip: plist 0.0.0, codesign pass, `ghm 0.0.0`; `sign_update --verify` chấp nhận chữ ký appcast, chữ ký sai bị từ chối.
+- Release thật `v0.8.1`: xem mục 21.
