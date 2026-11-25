@@ -4,13 +4,29 @@ on:
   push:
     tags:
       - "v*"
+  # Dry run: builds the CLI snapshot and the macOS app (zip + signed appcast)
+  # as workflow artifacts, without creating a release or touching the feed.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to stamp into the dry-run app (no v prefix)"
+        required: false
+        default: "0.0.0"
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  goreleaser:
+  cli:
+    name: cli (goreleaser)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -21,14 +37,123 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Resolve version
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ github.ref_name }}
+          INPUT: ${{ inputs.version }}
+        run: |
+          if [ "$EVENT" = "push" ]; then
+            v="${TAG#v}"
+          else
+            v="$INPUT"
+          fi
+          [ -n "$v" ] || { echo "empty version" >&2; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "building $v"
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+      - run: go vet ./...
       - run: go test ./...
 
-      - uses: goreleaser/goreleaser-action@v7
+      - name: goreleaser (publish)
+        if: github.event_name == 'push'
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # optional: a PAT with repo scope on thaoanhhaa1/homebrew-tap
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: goreleaser (snapshot)
+        if: github.event_name != 'push'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean --snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cli
+          path: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          if-no-files-found: error
+
+  app:
+    name: app (macos)
+    runs-on: macos-latest
+    timeout-minutes: 40
+    needs: cli
+    env:
+      VERSION: ${{ needs.cli.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The app reports the CLI version, so stamp the tag into the binary
+      # instead of relying on the default in internal/app/config.go.
+      - name: Build backend
+        run: |
+          go build -ldflags "-X github.com/thaoanhhaa1/ghm/internal/app.appVersion=${VERSION}" \
+            -o "$RUNNER_TEMP/ghm" ./cmd/ghm
+          "$RUNNER_TEMP/ghm" version
+
+      - name: Write Sparkle signing key
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "SPARKLE_PRIVATE_KEY secret is not set; appcast cannot be signed" >&2
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | tr -d '\r' > "$RUNNER_TEMP/sparkle.key"
+
+      - name: Bundle app
+        run: |
+          GHM_SRC="$RUNNER_TEMP/ghm" \
+          GHM_VERSION="$VERSION" \
+          GHM_MAKE_RELEASE=1 \
+          GHM_SPARKLE_KEY_FILE="$RUNNER_TEMP/sparkle.key" \
+          ./app/scripts/bundle.sh release
+
+      - name: Verify bundle
+        run: |
+          APP=app/build/ghm.app
+          got=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
+          test "$got" = "$VERSION" || { echo "plist version $got != $VERSION" >&2; exit 1; }
+          codesign --verify --deep --strict "$APP"
+          "$APP/Contents/MacOS/ghm" version | grep -qx "ghm $VERSION"
+          grep -q "sparkle:edSignature" dist/appcast.xml
+          grep -q "releases/download/v$VERSION/ghm-$VERSION.zip" dist/appcast.xml
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: app-${{ env.VERSION }}
+          path: |
+            dist/ghm-*.zip
+            dist/appcast.xml
+          if-no-files-found: error
+
+      # Runs after goreleaser has created the release for this tag, so the
+      # zip and the appcast land next to the CLI tarballs in one place.
+      - name: Upload app assets to the release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v$VERSION" "dist/ghm-$VERSION.zip" dist/appcast.xml --clobber
+          gh release view "v$VERSION" --json assets --jq '.assets[].name'

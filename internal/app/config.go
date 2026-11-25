@@ -31,8 +31,12 @@ type Config struct {
 	Accounts       []Account `yaml:"accounts"`
 }
 
+// appVersion can be overridden at build time:
+//
+//	go build -ldflags "-X github.com/thaoanhhaa1/ghm/internal/app.appVersion=1.2.3"
+var appVersion = "0.8.0"
+
 const (
-	appVersion   = "0.8.0"
 	defaultRoot  = "~/work"
 	githubHost   = "github.com"
 	githubAPIURL = "https://api.github.com"

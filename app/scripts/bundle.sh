@@ -117,10 +117,18 @@ if [ "${GHM_MAKE_RELEASE:-0}" = "1" ]; then
   rm -rf "$STAGE"
   mkdir -p "$STAGE"
   cp "$ZIP" "$STAGE/"
-  "$SPARKLE_BIN/generate_appcast" "$STAGE" \
-    --download-url-prefix "https://github.com/thaoanhhaa1/ghm/releases/download/v$VERSION/" \
-    --link "https://github.com/thaoanhhaa1/ghm" \
-    --maximum-deltas 0
+  # CI has no login keychain, so it passes the exported private key in a file.
+  generate() {
+    "$SPARKLE_BIN/generate_appcast" "$STAGE" "$@" \
+      --download-url-prefix "https://github.com/thaoanhhaa1/ghm/releases/download/v$VERSION/" \
+      --link "https://github.com/thaoanhhaa1/ghm" \
+      --maximum-deltas 0
+  }
+  if [ -n "${GHM_SPARKLE_KEY_FILE:-}" ]; then
+    generate --ed-key-file "$GHM_SPARKLE_KEY_FILE"
+  else
+    generate
+  fi
   mv "$STAGE/appcast.xml" "$DIST/appcast.xml"
   rm -rf "$STAGE"
   echo "release assets in $DIST:"
