@@ -65,7 +65,9 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean
+          # Draft first: the app job adds the zip + appcast and only then
+          # publishes, so releases/latest never exposes an incomplete update.
+          args: release --clean --draft
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
@@ -157,3 +159,13 @@ jobs:
         run: |
           gh release upload "v$VERSION" "dist/ghm-$VERSION.zip" dist/appcast.xml --clobber
           gh release view "v$VERSION" --json assets --jq '.assets[].name'
+
+      - name: Publish the release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          draft=$(gh release view "v$VERSION" --json isDraft --jq .isDraft)
+          test "$draft" = "true" || { echo "v$VERSION is not a draft; refusing" >&2; exit 1; }
+          gh release edit "v$VERSION" --draft=false
+          gh release view "v$VERSION" --json isDraft,assets --jq '"draft=\(.isDraft) assets=\(.assets|length)"'

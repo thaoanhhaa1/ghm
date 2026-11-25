@@ -695,4 +695,6 @@ Vì `needs: cli`, job `app` bị skip → release v0.8.1 chỉ có tarball, thi�
 - README ghi rõ cách sửa token.
 - Tăng 0.8.2 và tag lại để chứng minh pipeline chạy trọn: goreleaser publish + job app upload zip/appcast tự động.
 
-Bài học: job `app` phải `needs: cli`, nhưng mọi bước publish của `cli` phải là thứ không thể fail vì quyền phụ (brew) — nếu không sẽ chặn asset quan trọng nhất. Có thể tách brew thành job `continue-on-error` sau này.
+- Thêm `--draft` cho goreleaser: release được tạo ở trạng thái draft, job `app` upload zip/appcast rồi mới `gh release edit --draft=false`. Nhờ vậy nếu job app lỗi, `releases/latest` vẫn là bản trước đó, auto-update không bao giờ trỏ vào release thiếu file.
+
+Bài học: job `app` phải `needs: cli`, nhưng mọi bước publish của `cli` phải là thứ không thể fail vì quyền phụ (brew) — nếu không sẽ chặn asset quan trọng nhất. Draft + publish cuối cùng là chốt an toàn.

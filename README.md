@@ -198,8 +198,9 @@ runs on `v*`:
   `app/scripts/bundle.sh` with `GHM_VERSION` from the tag, signs the appcast with
   `SPARKLE_PRIVATE_KEY` (`generate_appcast --ed-key-file`), verifies the plist
   version, `codesign --verify`, `ghm version` and the appcast, then uploads
-  `ghm-x.y.z.zip` + `appcast.xml` into the same release. The `releases/latest`
-  feed therefore never points at a half-published version.
+  `ghm-x.y.z.zip` + `appcast.xml` into the same release and flips it from draft
+  to published. Until that last step, `releases/latest` still points at the
+  previous version, so a failed app job can never break auto-update.
 
 Secrets: `SPARKLE_PRIVATE_KEY` and `HOMEBREW_TAP_GITHUB_TOKEN`. The Homebrew push
 is currently skipped in `.goreleaser.yaml` (`skip_upload: true`): the fine-grained
