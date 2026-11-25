@@ -187,9 +187,10 @@ ghm completion fish > ~/.config/fish/completions/ghm.fish
 
 ## Release
 
-CI is **disabled** on purpose (`gh workflow disable ci.yml release.yml`): the GitHub
-account is locked for a billing issue, so every push produced a red X in 3 seconds
-without starting a single job. Run the same checks locally before pushing:
+`.github/workflows/ci.yml` runs on every push to `main` and on pull requests —
+gofmt, `go vet`, `go test`, build, `ghm version` and zsh completion — on both
+`ubuntu-latest` and `macos-latest`, plus a YAML parse check for the workflows and
+`.goreleaser.yaml`. The same checks run locally in one command:
 
 ```bash
 make check        # gofmt, go vet, go test, go build
@@ -206,8 +207,9 @@ gh release create v0.8.0 dist/ghm-0.8.0.zip dist/appcast.xml \
 ```
 
 `.github/workflows/release.yml` (goreleaser: darwin/linux tarballs, checksums,
-Homebrew formula) is kept for the day billing is fixed; enable it with
-`gh workflow enable release.yml`.
+Homebrew formula) is currently **disabled**, because the tag is also used by the
+manual app release above; enable it with `gh workflow enable release.yml` once the
+two flows are merged.
 
 
 ## Files written

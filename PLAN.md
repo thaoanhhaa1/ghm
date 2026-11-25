@@ -654,3 +654,11 @@ Yêu cầu: "chuyển UI sang kiểu liquid glass của iPhone". Bỏ tông grap
 - Sheet Add account: OCR thấy tiêu đề, mô tả, Browser/Token, nút Cancel + Start browser login; nền rgb(45,37,83), nút chính rgb(48,124,200).
 - Health sheet: 23 ok, badge ok/warn/fail bằng `GlassBadge`.
 - Update 0.7.1 → 0.8.0 qua feed GitHub thật (xem mục 17): *"ghm 0.8.0 is now available"* → Install → bundle thành 0.8.0.
+
+## 19. Bật lại CI — v0.8.0 (2026-11-25)
+
+Lỗi "account is locked due to a billing issue" đã được xử lý; chạy lại run cũ `45542185913` → xanh (yaml 5s, ubuntu 40s, macos 1m10s). Hai việc kèm theo:
+
+- `gh workflow enable ci.yml` (release vẫn disabled vì tag dùng cho release app tay).
+- Nâng action lên major chạy Node 24 để hết cảnh báo deprecated: `actions/checkout@v7`, `actions/setup-go@v7`, `goreleaser/goreleaser-action@v7`. Push `0c5fc67` → run `45545669873` xanh cả 3 job, không còn annotation Node 20.
+- `make check` giữ nguyên làm bước kiểm tra local trước khi push; README mục Release cập nhật lại (CI đang bật, vì sao release.yml vẫn tắt).
